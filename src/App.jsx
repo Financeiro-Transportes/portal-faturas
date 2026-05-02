@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 // ─────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
 const GESTAO_GOOGLE_EMAILS = {
-  "marcos.luiz@gocase.com":  { nome: "Marcos", role: "gestao" },
+  "marcos@suaempresa.com":  { nome: "Marcos", role: "gestao" },
   "jaine.caboclo@gocase.com": { nome: "Jaine", role: "gestao" },
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
 };
@@ -14,24 +14,24 @@ const GESTAO_GOOGLE_EMAILS = {
 //  CREDENCIAIS
 // ─────────────────────────────────────────────
 const USUARIOS = [
-  { usuario: "marcos",  senha: "marcosluiz@gocase",  nome: "Marcos", role: "gestao" },
-  { usuario: "Dados",   senha: "omelhortime123",  nome: "Dados",  role: "gestao" },
-  { usuario: "anjun",          senha: "anjun2025",       nome: "Anjun",           role: "transportadora", transportadora: "Anjun"           },
-  { usuario: "correios",       senha: "correios2025",    nome: "Correios",        role: "transportadora", transportadora: "Correios"        },
-  { usuario: "dialogo",        senha: "dialogo2025",     nome: "Diálogo",         role: "transportadora", transportadora: "Diálogo"         },
-  { usuario: "diaslog",        senha: "diaslog2025",     nome: "Diaslog",         role: "transportadora", transportadora: "Diaslog"         },
-  { usuario: "gollog",         senha: "gollog2025",      nome: "Gollog",          role: "transportadora", transportadora: "Gollog"          },
-  { usuario: "jt",             senha: "jt2025",          nome: "J&T",             role: "transportadora", transportadora: "J&T"             },
-  { usuario: "logservicos",    senha: "logservicos2025", nome: "Log Serviços",    role: "transportadora", transportadora: "Log Serviços"    },
-  { usuario: "logan",          senha: "logan2025",       nome: "Logan",           role: "transportadora", transportadora: "Logan"           },
-  { usuario: "unixlog",        senha: "unixlog2025",     nome: "Unixlog",         role: "transportadora", transportadora: "Unixlog"         },
-  { usuario: "srlog",          senha: "srlog2025",       nome: "SR Log",          role: "transportadora", transportadora: "SR Log"          },
-  { usuario: "spfly",          senha: "spfly2025",       nome: "SP Fly",          role: "transportadora", transportadora: "SP Fly"          },
-  { usuario: "kr",             senha: "kr2025",          nome: "KR",              role: "transportadora", transportadora: "KR"              },
-  { usuario: "jamef",          senha: "jamef2025",       nome: "Jamef",           role: "transportadora", transportadora: "Jamef"           },
-  { usuario: "favorita",       senha: "favorita2025",    nome: "Favorita",        role: "transportadora", transportadora: "Favorita"        },
-  { usuario: "ativa",          senha: "ativa2025",       nome: "Ativa",           role: "transportadora", transportadora: "Ativa"           },
-  { usuario: "brunotransportes",senha: "bruno2025",      nome: "Bruno Transportes",role:"transportadora", transportadora: "Bruno Transportes"},
+  { usuario: "marcos",  senha: "MarcosLuiz2026@",  nome: "Marcos", role: "gestao" },
+  { usuario: "Dados",   senha: "timededados2026",  nome: "Dados",  role: "gestao" },
+  { usuario: "anjun",          senha: "AnJun2026",       nome: "Anjun",           role: "transportadora", transportadora: "Anjun"           },
+  { usuario: "correios",       senha: "Correios2026@",    nome: "Correios",        role: "transportadora", transportadora: "Correios"        },
+  { usuario: "dialogo",        senha: "Dialogo2026#",     nome: "Diálogo",         role: "transportadora", transportadora: "Diálogo"         },
+  { usuario: "diaslog",        senha: "Diaslog2026&",     nome: "Diaslog",         role: "transportadora", transportadora: "Diaslog"         },
+  { usuario: "gollog",         senha: "Gollog2026$",      nome: "Gollog",          role: "transportadora", transportadora: "Gollog"          },
+  { usuario: "jt",             senha: "JT2026#",          nome: "J&T",             role: "transportadora", transportadora: "J&T"             },
+  { usuario: "logservicos",    senha: "LogServicos2026%", nome: "Log Serviços",    role: "transportadora", transportadora: "Log Serviços"    },
+  { usuario: "logan",          senha: "Logan2026!",       nome: "Logan",           role: "transportadora", transportadora: "Logan"           },
+  { usuario: "unixlog",        senha: "UnixloG2026#@",     nome: "Unixlog",         role: "transportadora", transportadora: "Unixlog"         },
+  { usuario: "srlog",          senha: "SRlog2026$",       nome: "SR Log",          role: "transportadora", transportadora: "SR Log"          },
+  { usuario: "spfly",          senha: "Spfly2026$#",       nome: "SP Fly",          role: "transportadora", transportadora: "SP Fly"          },
+  { usuario: "kr",             senha: "KR2026&*",          nome: "KR",              role: "transportadora", transportadora: "KR"              },
+  { usuario: "jamef",          senha: "Jamef2026@!",       nome: "Jamef",           role: "transportadora", transportadora: "Jamef"           },
+  { usuario: "favorita",       senha: "Favorita2026%$",    nome: "Favorita",        role: "transportadora", transportadora: "Favorita"        },
+  { usuario: "ativa",          senha: "AtiVa2026$#",       nome: "Ativa",           role: "transportadora", transportadora: "Ativa"           },
+  { usuario: "brunotransportes",senha: "Bruno.transp2026@",      nome: "Bruno Transportes",role:"transportadora", transportadora: "Bruno Transportes"},
 ];
 
 // ─────────────────────────────────────────────
@@ -539,6 +539,13 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     else if(!ciclosDisponiveis.includes(f.ciclo)) s("ciclo")("");
   },[nomeTranspAtual]);
 
+  const [protocolo, setProtocolo] = useState("");
+  const gerarProtocoloLocal = (transp) => {
+    const ts = Date.now().toString(36).toUpperCase();
+    const tr = (transp||"XX").substring(0,3).toUpperCase();
+    return `FAT-${tr}-${ts}`;
+  };
+
   const valid=()=>{
     const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
     const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&f.natureza&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;
@@ -551,9 +558,11 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     try{
       const arquivosBase64=await Promise.all(f.files.map(file=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({nomeOriginal:file.name,mimeType:file.type||"application/octet-stream",tamanhoBytes:file.size,conteudoBase64:r.result.split(",")[1]});r.onerror=rej;r.readAsDataURL(file);})));
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-      const payload={emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64};
+      const proto=gerarProtocoloLocal(nt);
+      setProtocolo(proto);
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
-      const nova={id:Date.now(),numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:f.natureza,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:""};
+      const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:f.natureza,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:""};
       onNovaFatura(nova);setLoading(false);setDone(true);
     }catch(err){setLoading(false);alert("Erro ao enviar: "+err.message);}
   };
@@ -562,9 +571,14 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
     <div className="stitle">Fatura Registrada</div>
     <p className="ssub">Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle.</p>
+    <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"12px 16px",marginBottom:14,textAlign:"center"}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:4}}>Protocolo de Registro</div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
+      <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>Guarde este número para acompanhamento</div>
+    </div>
     <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
     <Preview d={f}/>
-    <button className="btn-r" onClick={()=>{setF(blank);setDone(false);}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
+    <button className="btn-r" onClick={()=>{setF(blank);setDone(false);setProtocolo("");}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
   </div></div>;
 
   return<div className="page-sm">
@@ -877,14 +891,32 @@ function Gestao({ faturas: faturasLocais }) {
 //  APP ROOT
 // ─────────────────────────────────────────────
 export default function App() {
-  const [usuario,setUsuario]=useState(null);
-  const [aba,setAba]=useState("portal");
+  const [usuario,setUsuario]=useState(()=>{
+    try{ const s=localStorage.getItem("portal_usuario"); return s?JSON.parse(s):null; }
+    catch{ return null; }
+  });
+  const [aba,setAba]=useState(()=>{
+    try{ const s=localStorage.getItem("portal_usuario"); const u=s?JSON.parse(s):null; return u?.role==="gestao"?"gestao":"portal"; }
+    catch{ return "portal"; }
+  });
   const [faturas,setFaturas]=useState(MOCK_FATURAS);
   const vencendoBreve=faturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)>=0&&diasAteVencer(f.vencimento)<=5).length;
   const isGestao=usuario?.role==="gestao";
   const isTransp=usuario?.role==="transportadora";
 
-  if(!usuario)return<><style>{css}</style><LoginInicial onLogin={u=>{setUsuario(u);setAba(u.role==="gestao"?"gestao":"portal");}}/></>;
+  const handleLogin=u=>{
+    try{ localStorage.setItem("portal_usuario",JSON.stringify({...u,picture:null})); }catch{}
+    setUsuario(u);
+    setAba(u.role==="gestao"?"gestao":"portal");
+  };
+
+  const handleLogout=()=>{
+    try{ localStorage.removeItem("portal_usuario"); }catch{}
+    setUsuario(null);
+    setAba("portal");
+  };
+
+  if(!usuario)return<><style>{css}</style><LoginInicial onLogin={handleLogin}/></>;
 
   return<><style>{css}</style>
     <div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)"}}>
@@ -897,7 +929,7 @@ export default function App() {
             {usuario.nome}
             {usuario.loginMethod==="google"&&<span style={{display:"flex",alignItems:"center",opacity:0.5}}><Icon name="google" size={11}/></span>}
           </span>
-          <button className="btn-logout" onClick={()=>{setUsuario(null);setAba("portal");}}><Icon name="logout" size={13}/>Sair</button>
+          <button className="btn-logout" onClick={handleLogout}><Icon name="logout" size={13}/>Sair</button>
         </div>
       </div></div>
       <div className="stripe"/>
