@@ -1,8 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 
-// ─────────────────────────────────────────────
-//  GOOGLE AUTH
-// ─────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
 const GESTAO_GOOGLE_EMAILS = {
   "marcos@suaempresa.com":  { nome: "Marcos", role: "gestao" },
@@ -10,38 +7,27 @@ const GESTAO_GOOGLE_EMAILS = {
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
 };
 
-// ─────────────────────────────────────────────
-//  CREDENCIAIS
-// ─────────────────────────────────────────────
 const USUARIOS = [
   { usuario: "marcos",  senha: "MarcosLuiz2026@",  nome: "Marcos", role: "gestao" },
   { usuario: "Dados",   senha: "timededados2026",  nome: "Dados",  role: "gestao" },
-  { usuario: "anjun",          senha: "AnJun2026",       nome: "Anjun",           role: "transportadora", transportadora: "Anjun"           },
-  { usuario: "correios",       senha: "Correios2026@",    nome: "Correios",        role: "transportadora", transportadora: "Correios"        },
-  { usuario: "dialogo",        senha: "Dialogo2026#",     nome: "Diálogo",         role: "transportadora", transportadora: "Diálogo"         },
-  { usuario: "diaslog",        senha: "Diaslog2026&",     nome: "Diaslog",         role: "transportadora", transportadora: "Diaslog"         },
-  { usuario: "gollog",         senha: "Gollog2026$",      nome: "Gollog",          role: "transportadora", transportadora: "Gollog"          },
-  { usuario: "jt",             senha: "JT2026#",          nome: "J&T",             role: "transportadora", transportadora: "J&T"             },
-  { usuario: "logservicos",    senha: "LogServicos2026%", nome: "Log Serviços",    role: "transportadora", transportadora: "Log Serviços"    },
-  { usuario: "logan",          senha: "Logan2026!",       nome: "Logan",           role: "transportadora", transportadora: "Logan"           },
-  { usuario: "unixlog",        senha: "UnixloG2026#@",     nome: "Unixlog",         role: "transportadora", transportadora: "Unixlog"         },
-  { usuario: "srlog",          senha: "SRlog2026$",       nome: "SR Log",          role: "transportadora", transportadora: "SR Log"          },
-  { usuario: "spfly",          senha: "Spfly2026$#",       nome: "SP Fly",          role: "transportadora", transportadora: "SP Fly"          },
-  { usuario: "kr",             senha: "KR2026&*",          nome: "KR",              role: "transportadora", transportadora: "KR"              },
-  { usuario: "jamef",          senha: "Jamef2026@!",       nome: "Jamef",           role: "transportadora", transportadora: "Jamef"           },
-  { usuario: "favorita",       senha: "Favorita2026%$",    nome: "Favorita",        role: "transportadora", transportadora: "Favorita"        },
-  { usuario: "ativa",          senha: "AtiVa2026$#",       nome: "Ativa",           role: "transportadora", transportadora: "Ativa"           },
-  { usuario: "brunotransportes",senha: "Bruno.transp2026@",      nome: "Bruno Transportes",role:"transportadora", transportadora: "Bruno Transportes"},
+  { usuario: "anjun",           senha: "AnJun2026",          nome: "Anjun",            role: "transportadora", transportadora: "Anjun"           },
+  { usuario: "correios",        senha: "Correios2026@",       nome: "Correios",         role: "transportadora", transportadora: "Correios"        },
+  { usuario: "dialogo",         senha: "Dialogo2026#",        nome: "Diálogo",          role: "transportadora", transportadora: "Diálogo"         },
+  { usuario: "diaslog",         senha: "Diaslog2026&",        nome: "Diaslog",          role: "transportadora", transportadora: "Diaslog"         },
+  { usuario: "gollog",          senha: "Gollog2026$",         nome: "Gollog",           role: "transportadora", transportadora: "Gollog"          },
+  { usuario: "jt",              senha: "JT2026#",             nome: "J&T",              role: "transportadora", transportadora: "J&T"             },
+  { usuario: "logservicos",     senha: "LogServicos2026%",    nome: "Log Serviços",     role: "transportadora", transportadora: "Log Serviços"    },
+  { usuario: "logan",           senha: "Logan2026!",          nome: "Logan",            role: "transportadora", transportadora: "Logan"           },
+  { usuario: "unixlog",         senha: "UnixloG2026#@",       nome: "Unixlog",          role: "transportadora", transportadora: "Unixlog"         },
+  { usuario: "srlog",           senha: "SRlog2026$",          nome: "SR Log",           role: "transportadora", transportadora: "SR Log"          },
+  { usuario: "spfly",           senha: "Spfly2026$#",         nome: "SP Fly",           role: "transportadora", transportadora: "SP Fly"          },
+  { usuario: "kr",              senha: "KR2026&*",            nome: "KR",               role: "transportadora", transportadora: "KR"              },
+  { usuario: "jamef",           senha: "Jamef2026@!",         nome: "Jamef",            role: "transportadora", transportadora: "Jamef"           },
+  { usuario: "favorita",        senha: "Favorita2026%$",      nome: "Favorita",         role: "transportadora", transportadora: "Favorita"        },
+  { usuario: "ativa",           senha: "AtiVa2026$#",         nome: "Ativa",            role: "transportadora", transportadora: "Ativa"           },
+  { usuario: "brunotransportes",senha: "Bruno.transp2026@",   nome: "Bruno Transportes",role: "transportadora", transportadora: "Bruno Transportes"},
 ];
 
-// ─────────────────────────────────────────────
-//  CICLOS POR TRANSPORTADORA
-//  "mensal"   → só "Mensal"
-//  "quinzena" → "1ª Quinzena" e "2ª Quinzena"
-//  "demanda"  → todas as opções
-//  "livre"    → todas as opções
-//  Para alterar: troque o valor da transportadora abaixo
-// ─────────────────────────────────────────────
 const CICLOS_TRANSPORTADORA = {
   "Anjun":            "mensal",
   "Correios":         "mensal",
@@ -73,14 +59,8 @@ function getCiclosTransp(nomeTransp) {
   return OPCOES_CICLO[tipo] || ["Mensal", "1ª Quinzena", "2ª Quinzena"];
 }
 
-// ─────────────────────────────────────────────
-//  APPS SCRIPT
-// ─────────────────────────────────────────────
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPsRsnh1ZARyu7gVq3By7Jj_qvpwaBSrDQCDoA3j7P9w9v1Qcok5CSZHXqR6g8bP-8Bg/exec";
 
-// ─────────────────────────────────────────────
-//  DADOS ESTÁTICOS
-// ─────────────────────────────────────────────
 const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","Outro"];
 const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","BeautyHub"];
 const CDs    = ["CD MG","CD SP","CD ES","CD RJ"];
@@ -93,19 +73,16 @@ const dPlus = d => { const x=new Date(hoje); x.setDate(x.getDate()+d); return x.
 const dMinus= d => { const x=new Date(hoje); x.setDate(x.getDate()-d); return x.toISOString().split("T")[0]; };
 
 const MOCK_FATURAS = [
-  { id:1, transportadora:"KR",       empresa:"Ápice",     cd:"CD SP", seg:"B2B", natureza:"Frete", vencimento:dPlus(3),   valor:12480.50, desconto:0,    ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["fatura_kr_jun.pdf"],          status:"Pendente", dataPagamento:"" },
+  { id:1, transportadora:"KR",       empresa:"Ápice",     cd:"CD SP", seg:"B2B", natureza:"Frete", vencimento:dPlus(3),   valor:12480.50, desconto:0,    ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["fatura_kr_jun.pdf"],           status:"Pendente", dataPagamento:"" },
   { id:2, transportadora:"Unixlog",  empresa:"Barbour's", cd:"CD MG", seg:"B2B", natureza:"Frete", vencimento:dPlus(1),   valor:8320.00,  desconto:500,  ciclo:"1ª Quinzena", mes:"Junho", ano:"2025", arquivos:["fatura_unixlog.pdf","mem.xlsx"],status:"Pendente", dataPagamento:"" },
-  { id:3, transportadora:"Jamef",    empresa:"BeautyHub", cd:"CD RJ", seg:"B2B", natureza:"Difal", vencimento:dPlus(12),  valor:5640.00,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["difal_jamef.pdf"],            status:"Pendente", dataPagamento:"" },
-  { id:4, transportadora:"Logan",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(5),  valor:21000.00, desconto:1200, ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["fatura_logan_mai.pdf"],       status:"Paga",     dataPagamento:"10/05/2025" },
-  { id:5, transportadora:"Correios", empresa:"Kokeshi",   cd:"CD ES", seg:"B2C", natureza:"Frete", vencimento:dMinus(2),  valor:3870.75,  desconto:0,    ciclo:"1ª Quinzena", mes:"Junho", ano:"2025", arquivos:["correios_jun_q1.pdf"],        status:"Pendente", dataPagamento:"" },
-  { id:6, transportadora:"Favorita", empresa:"Rituária",  cd:"CD RJ", seg:"B2B", natureza:"Frete", vencimento:dPlus(20),  valor:15200.00, desconto:800,  ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["favorita_jun.pdf","nfe.xml"], status:"Pendente", dataPagamento:"" },
-  { id:7, transportadora:"J&T",      empresa:"Lescent",   cd:"CD ES", seg:"B2C", natureza:"Difal", vencimento:dPlus(2),   valor:9450.20,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["jt_difal_jun_q2.pdf"],        status:"Pendente", dataPagamento:"" },
-  { id:8, transportadora:"Anjun",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(10), valor:6780.00,  desconto:300,  ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["anjun_mai.pdf"],              status:"Paga",     dataPagamento:"02/05/2025" },
+  { id:3, transportadora:"Jamef",    empresa:"BeautyHub", cd:"CD RJ", seg:"B2B", natureza:"Difal", vencimento:dPlus(12),  valor:5640.00,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["difal_jamef.pdf"],             status:"Pendente", dataPagamento:"" },
+  { id:4, transportadora:"Logan",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(5),  valor:21000.00, desconto:1200, ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["fatura_logan_mai.pdf"],        status:"Paga",     dataPagamento:"10/05/2025" },
+  { id:5, transportadora:"Correios", empresa:"Kokeshi",   cd:"CD ES", seg:"B2C", natureza:"Frete", vencimento:dMinus(2),  valor:3870.75,  desconto:0,    ciclo:"1ª Quinzena", mes:"Junho", ano:"2025", arquivos:["correios_jun_q1.pdf"],         status:"Pendente", dataPagamento:"" },
+  { id:6, transportadora:"Favorita", empresa:"Rituária",  cd:"CD RJ", seg:"B2B", natureza:"Frete", vencimento:dPlus(20),  valor:15200.00, desconto:800,  ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["favorita_jun.pdf","nfe.xml"],  status:"Pendente", dataPagamento:"" },
+  { id:7, transportadora:"J&T",      empresa:"Lescent",   cd:"CD ES", seg:"B2C", natureza:"Difal", vencimento:dPlus(2),   valor:9450.20,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["jt_difal_jun_q2.pdf"],         status:"Pendente", dataPagamento:"" },
+  { id:8, transportadora:"Anjun",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(10), valor:6780.00,  desconto:300,  ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["anjun_mai.pdf"],               status:"Paga",     dataPagamento:"02/05/2025" },
 ];
 
-// ─────────────────────────────────────────────
-//  SVG ICONS
-// ─────────────────────────────────────────────
 const Icon = ({ name, size=16, color="currentColor" }) => {
   const icons = {
     truck:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
@@ -137,9 +114,6 @@ const Icon = ({ name, size=16, color="currentColor" }) => {
   return icons[name] || null;
 };
 
-// ─────────────────────────────────────────────
-//  CSS
-// ─────────────────────────────────────────────
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -324,9 +298,6 @@ select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 `;
 
-// ─────────────────────────────────────────────
-//  UTILS
-// ─────────────────────────────────────────────
 const fmtBRL  = v => `R$ ${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const fmtDate = s => { if(!s)return"—"; const [y,m,d]=s.split("-"); return `${d}/${m}/${y}`; };
 const diasAteVencer = s => {
@@ -334,36 +305,30 @@ const diasAteVencer = s => {
   const d = Math.ceil((new Date(s)-new Date())/86400000);
   return isNaN(d) ? 9999 : d;
 };
-
-// Conta quantos dias úteis existem entre hoje e a data de vencimento
 const diasUteisAteVencer = s => {
   if(!s) return 9999;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const venc = new Date(s); venc.setHours(0,0,0,0);
-  if(venc < hoje) return -1; // já venceu
+  if(venc < hoje) return -1;
   let uteis = 0;
   const cur = new Date(hoje);
   while(cur <= venc) {
     const dow = cur.getDay();
-    if(dow !== 0 && dow !== 6) uteis++; // ignora dom e sab
+    if(dow !== 0 && dow !== 6) uteis++;
     cur.setDate(cur.getDate()+1);
   }
-  return uteis - 1; // exclui o próprio dia de vencimento
+  return uteis - 1;
 };
-
 const statusBadge = (venc, paga) => {
   if(paga) return <span className="badge badge-green">Paga</span>;
   if(!venc) return <span className="badge badge-blue">—</span>;
-  const dc = diasAteVencer(venc);       // dias corridos (para saber se venceu)
-  const du = diasUteisAteVencer(venc);  // dias úteis (para urgente)
-  if(dc < 0)   return <span className="badge badge-red">Vencido</span>;
-  if(du <= 6)  return <span className="badge badge-yellow">Urgente · {du}du</span>;
-  return             <span className="badge badge-green">A vencer</span>;
+  const dc = diasAteVencer(venc);
+  const du = diasUteisAteVencer(venc);
+  if(dc < 0)  return <span className="badge badge-red">Vencido</span>;
+  if(du <= 6) return <span className="badge badge-yellow">Urgente · {du}du</span>;
+  return            <span className="badge badge-green">A vencer</span>;
 };
 
-// ─────────────────────────────────────────────
-//  BASE COMPONENTS
-// ─────────────────────────────────────────────
 function Sel({ value, onChange, options, placeholder }) {
   return <div className="sel-w"><select className="sel" value={value} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select></div>;
 }
@@ -422,9 +387,6 @@ function Preview({ d }) {
   </div>;
 }
 
-// ─────────────────────────────────────────────
-//  LOGIN
-// ─────────────────────────────────────────────
 function LoginInicial({ onLogin }) {
   const [modo,setModo]=useState("gestao");
   const [user,setUser]=useState("");
@@ -434,7 +396,6 @@ function LoginInicial({ onLogin }) {
   const gsiInit=useRef(false);
 
   const decodeJWT=t=>{try{return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));}catch{return null;}};
-
   const handleGoogle=res=>{
     const p=decodeJWT(res.credential);
     if(!p?.email){setErr("Falha na autenticação Google.");return;}
@@ -442,21 +403,17 @@ function LoginInicial({ onLogin }) {
     if(cfg){setErr("");onLogin({...cfg,email:p.email,picture:p.picture||null,loginMethod:"google"});}
     else setErr(`E-mail ${p.email} não autorizado.`);
   };
-
   const renderBtn=()=>{
     if(!window.google?.accounts?.id||!googleBtnRef.current)return;
     googleBtnRef.current.innerHTML="";
     window.google.accounts.id.renderButton(googleBtnRef.current,{theme:"filled_black",size:"large",text:"signin_with",width:300,shape:"rectangular"});
   };
-
   const initGSI=()=>{
     if(!window.google?.accounts?.id)return;
     if(!gsiInit.current){window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogle,ux_mode:"popup"});gsiInit.current=true;}
     renderBtn();
   };
-
   const clientIdOk=GOOGLE_CLIENT_ID&&!GOOGLE_CLIENT_ID.includes("COLE");
-
   useEffect(()=>{
     if(modo!=="gestao"||!clientIdOk)return;
     if(window.google?.accounts?.id){initGSI();}
@@ -466,9 +423,7 @@ function LoginInicial({ onLogin }) {
       else{const p=setInterval(()=>{if(window.google?.accounts?.id){clearInterval(p);initGSI();}},150);return()=>clearInterval(p);}
     }
   },[modo,clientIdOk]);
-
   useEffect(()=>{if(modo==="gestao"&&googleBtnRef.current&&window.google?.accounts?.id)renderBtn();});
-
   const tentarSenha=()=>{
     const filtro=modo==="gestao"?"gestao":"transportadora";
     const u=USUARIOS.find(u=>u.usuario===user&&u.senha===pass&&u.role===filtro);
@@ -518,9 +473,6 @@ function LoginInicial({ onLogin }) {
   </div>;
 }
 
-// ─────────────────────────────────────────────
-//  PORTAL DE ENVIO
-// ─────────────────────────────────────────────
 function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   const blank={numeroFatura:"",transportadora:transportadoraFixa||"",transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:"",natureza:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};
   const [f,setF]=useState(blank);
@@ -529,22 +481,25 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   const s=k=>v=>setF(p=>({...p,[k]:v}));
   const fmtCur=v=>{const n=v.replace(/\D/g,"");if(!n)return"";return(parseFloat(n)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
 
-  // Ciclos disponíveis para a transportadora atual
   const nomeTranspAtual = f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
   const ciclosDisponiveis = getCiclosTransp(nomeTranspAtual);
 
-  // Auto-preenche ciclo se só tiver uma opção
   useEffect(()=>{
     if(ciclosDisponiveis.length===1) s("ciclo")(ciclosDisponiveis[0]);
     else if(!ciclosDisponiveis.includes(f.ciclo)) s("ciclo")("");
   },[nomeTranspAtual]);
 
-  const [protocolo, setProtocolo] = useState("");
-  const gerarProtocoloLocal = (transp) => {
-    const ts = Date.now().toString(36).toUpperCase();
-    const tr = (transp||"XX").substring(0,3).toUpperCase();
-    return `FAT-${tr}-${ts}`;
+  // Protocolo determinístico — mesma lógica do Apps Script
+  // Baseado em dados fixos da fatura, não em timestamp
+  const gerarProtocoloLocal = (transp, numeroFatura, vencimento) => {
+    const tr   = (transp        || "XX").substring(0,3).toUpperCase();
+    const nf   = (numeroFatura  || "").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();
+    const venc = (vencimento    || "").replace(/-/g,"").substring(2); // AAMMDD
+    return `FAT-${tr}-${nf}-${venc}`;
+    // Ex: FAT-ANJ-NF2025-250620
   };
+
+  const [protocolo, setProtocolo] = useState("");
 
   const valid=()=>{
     const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
@@ -558,7 +513,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     try{
       const arquivosBase64=await Promise.all(f.files.map(file=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({nomeOriginal:file.name,mimeType:file.type||"application/octet-stream",tamanhoBytes:file.size,conteudoBase64:r.result.split(",")[1]});r.onerror=rej;r.readAsDataURL(file);})));
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-      const proto=gerarProtocoloLocal(nt);
+      const proto=gerarProtocoloLocal(nt, f.numeroFatura, f.vencimento);
       setProtocolo(proto);
       const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
@@ -570,14 +525,14 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   if(done)return<div className="spage"><div className="scard">
     <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
     <div className="stitle">Fatura Registrada</div>
-    <p className="ssub">Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle.</p>
-    <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"12px 16px",marginBottom:14,textAlign:"center"}}>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:4}}>Protocolo de Registro</div>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
-      <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>Guarde este número para acompanhamento</div>
+    <p className="ssub">{transportadoraFixa?"Sua fatura foi recebida e está sendo processada.":"Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle."}</p>
+    <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"16px",marginBottom:14,textAlign:"center"}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>Protocolo de Registro</div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
+      <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Guarde este número para acompanhamento</div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
-    <Preview d={f}/>
+    {!transportadoraFixa&&<Preview d={f}/>}
     <button className="btn-r" onClick={()=>{setF(blank);setDone(false);setProtocolo("");}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
   </div></div>;
 
@@ -646,9 +601,6 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   </div>;
 }
 
-// ─────────────────────────────────────────────
-//  GESTÃO
-// ─────────────────────────────────────────────
 function Gestao({ faturas: faturasLocais }) {
   const [faturas,setFaturas]=useState(faturasLocais);
   const [carregando,setCarregando]=useState(true);
@@ -663,8 +615,8 @@ function Gestao({ faturas: faturasLocais }) {
   const [busca,setBusca]=useState("");
   const [selecionadas,setSelecionadas]=useState(new Set());
   const [marcando,setMarcando]=useState(false);
-  const [pagandoId,setPagandoId]=useState(null); // protocolo da fatura sendo paga individualmente
-  const [dataPgtoInput,setDataPgtoInput]=useState(""); // data escolhida pelo usuário
+  const [pagandoId,setPagandoId]=useState(null);
+  const [dataPgtoInput,setDataPgtoInput]=useState("");
   const [subAba,setSubAba]=useState("resumo");
 
   useEffect(()=>{
@@ -733,7 +685,6 @@ function Gestao({ faturas: faturasLocais }) {
 
   const limparFiltros=()=>{setFiltroTransp("");setFiltroStatus("");setFiltroEmp("");setFiltroNatureza("");setFiltroMes("");setFiltroAno("");setFiltroPgto("");setBusca("");};
   const temFiltro=filtroTransp||filtroStatus||filtroEmp||filtroNatureza||filtroMes||filtroAno||filtroPgto||busca;
-
   const recarregar=async()=>{setCarregando(true);try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);};};
 
   return<div className="page">
@@ -758,7 +709,7 @@ function Gestao({ faturas: faturasLocais }) {
         <div className="alert-icon"><Icon name="alert" size={16}/></div>
         <div>
           {vencidos.length>0&&<div className="alert-title">{vencidos.length} fatura{vencidos.length!==1?"s":""} vencida{vencidos.length!==1?"s":""} em aberto</div>}
-          {alertas.length>0&&<div className="alert-title yellow">{alertas.length} fatura{alertas.length!==1?"s":""} vencendo em até 5 dias</div>}
+          {alertas.length>0&&<div className="alert-title yellow">{alertas.length} fatura{alertas.length!==1?"s":""} vencendo em até 6 dias úteis</div>}
           <div className="alert-list">{[...vencidos,...alertas].map(f=><div key={f._key||f.id}>· {f.transportadora} — {fmtBRL(f.valor)} — venc. {fmtDate(f.vencimento)}</div>)}</div>
         </div>
       </div>}
@@ -771,7 +722,6 @@ function Gestao({ faturas: faturasLocais }) {
     </>}
 
     {subAba==="faturas"&&<>
-      {/* Filtros */}
       <div className="filters">
         <div style={{position:"relative"}}>
           <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span>
@@ -788,7 +738,6 @@ function Gestao({ faturas: faturasLocais }) {
         <span className="results-count">{faturasVisiveis.length} resultado{faturasVisiveis.length!==1?"s":""}</span>
       </div>
 
-      {/* Barra de lote */}
       {selecionadas.size>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"var(--amber-glow)",border:"1px solid var(--amber-b)",borderRadius:8,marginBottom:12,flexWrap:"wrap"}}>
         <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"var(--amber)"}}>{selecionadas.size} fatura{selecionadas.size!==1?"s":""} selecionada{selecionadas.size!==1?"s":""}</span>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -796,19 +745,14 @@ function Gestao({ faturas: faturasLocais }) {
           <input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)}
             style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
         </div>
-        <button
-          disabled={!dataPgtoInput||marcando}
-          onClick={()=>{
-            if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}
-            const [y,m,d]=dataPgtoInput.split("-");
-            marcarPagas(selecionadas,`${d}/${m}/${y}`);
-          }}          style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>
+        <button disabled={!dataPgtoInput||marcando}
+          onClick={()=>{if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}}
+          style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>
           {marcando?"Salvando...":"✓ Marcar como Pagas"}
         </button>
         <button onClick={()=>{setSelecionadas(new Set());setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:18}}>×</button>
       </div>}
 
-      {/* Tabela */}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead><tr>
@@ -843,22 +787,16 @@ function Gestao({ faturas: faturasLocais }) {
                       ? <div style={{display:"flex",alignItems:"center",gap:5}}>
                           <input type="date" autoFocus value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)}
                             style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
-                          <button
-                            onClick={()=>{
-                              if(!dataPgtoInput){alert("Informe a data.");return;}
-                              const [y,m,d]=dataPgtoInput.split("-");
-                              marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);
-                            }}
+                          <button onClick={()=>{if(!dataPgtoInput){alert("Informe a data.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);}}
                             style={{background:"var(--green)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
                           <button onClick={()=>{setPagandoId(null);setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
                         </div>
-                      : <button
-                          onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}}
+                      : <button onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}}
                           style={{background:"none",border:"1px solid var(--green-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--green)"}}>
                           Pagar
                         </button>
                   )}
-                  {paga&&<span style={{fontSize:11,color:"var(--muted)"}}>{f.dataPagamento ? (f.dataPagamento.includes("T") ? fmtDate(f.dataPagamento.split("T")[0]) : f.dataPagamento) : "—"}</span>}
+                  {paga&&<span style={{fontSize:11,color:"var(--muted)"}}>{f.dataPagamento?(f.dataPagamento.includes("T")?fmtDate(f.dataPagamento.split("T")[0]):f.dataPagamento):"—"}</span>}
                 </td>
               </tr>;
             })}
@@ -887,9 +825,6 @@ function Gestao({ faturas: faturasLocais }) {
   </div>;
 }
 
-// ─────────────────────────────────────────────
-//  APP ROOT
-// ─────────────────────────────────────────────
 export default function App() {
   const [usuario,setUsuario]=useState(()=>{
     try{ const s=localStorage.getItem("portal_usuario"); return s?JSON.parse(s):null; }
@@ -900,7 +835,7 @@ export default function App() {
     catch{ return "portal"; }
   });
   const [faturas,setFaturas]=useState(MOCK_FATURAS);
-  const vencendoBreve=faturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)>=0&&diasAteVencer(f.vencimento)<=5).length;
+  const vencendoBreve=faturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)>=0&&diasUteisAteVencer(f.vencimento)<=6).length;
   const isGestao=usuario?.role==="gestao";
   const isTransp=usuario?.role==="transportadora";
 
@@ -909,7 +844,6 @@ export default function App() {
     setUsuario(u);
     setAba(u.role==="gestao"?"gestao":"portal");
   };
-
   const handleLogout=()=>{
     try{ localStorage.removeItem("portal_usuario"); }catch{}
     setUsuario(null);
