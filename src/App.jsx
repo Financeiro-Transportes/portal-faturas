@@ -2,14 +2,17 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
 const GESTAO_GOOGLE_EMAILS = {
-  "marcos@suaempresa.com":  { nome: "Marcos", role: "gestao" },
+  "marcos.luiz@gocase.com":  { nome: "Marcos", role: "gestao" },
   "jaine.caboclo@gocase.com": { nome: "Jaine", role: "gestao" },
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
+  "joao.conde@gocase.com": { nome: "Transportes", role: "gestao" },
+  "kelly.sousa@gocase.com": { nome: "Transportes", role: "gestao" },
 };
 
 const USUARIOS = [
   { usuario: "marcos",  senha: "MarcosLuiz2026@",  nome: "Marcos", role: "gestao" },
   { usuario: "Dados",   senha: "timededados2026",  nome: "Dados",  role: "gestao" },
+  { usuario: "Transporte",   senha: "Timetransportes2026@",       nome: "Transportes",  role: "transportadora" },
   { usuario: "anjun",           senha: "AnJun2026",          nome: "Anjun",            role: "transportadora", transportadora: "Anjun"           },
   { usuario: "correios",        senha: "Correios2026@",       nome: "Correios",         role: "transportadora", transportadora: "Correios"        },
   { usuario: "dialogo",         senha: "Dialogo2026#",        nome: "Diálogo",          role: "transportadora", transportadora: "Diálogo"         },
@@ -26,6 +29,15 @@ const USUARIOS = [
   { usuario: "favorita",        senha: "Favorita2026%$",      nome: "Favorita",         role: "transportadora", transportadora: "Favorita"        },
   { usuario: "ativa",           senha: "AtiVa2026$#",         nome: "Ativa",            role: "transportadora", transportadora: "Ativa"           },
   { usuario: "brunotransportes",senha: "Bruno.transp2026@",   nome: "Bruno Transportes",role: "transportadora", transportadora: "Bruno Transportes"},
+  { usuario: "arc",             senha: "Arc2026@!",           nome: "ARC",              role: "transportadora", transportadora: "ARC"             },
+  { usuario: "paed",            senha: "Paed2026#$",          nome: "PAED",             role: "transportadora", transportadora: "PAED"            },
+  { usuario: "matheus",         senha: "Matheus2026&*",       nome: "Matheus",          role: "transportadora", transportadora: "Matheus"         },
+  { usuario: "binho",           senha: "Binho2026@#",         nome: "Binho",            role: "transportadora", transportadora: "Binho"           },
+  { usuario: "family",          senha: "Family2026$!",        nome: "Family",           role: "transportadora", transportadora: "Family"          },
+  { usuario: "fsl",             senha: "Fsl2026#@",           nome: "FSL",              role: "transportadora", transportadora: "FSL"             },
+  { usuario: "ciacargas",       senha: "CiaCargas2026%&",     nome: "Cia Cargas",       role: "transportadora", transportadora: "Cia Cargas"      },
+  { usuario: "dirceu",          senha: "Dirceu2026@#",         nome: "Dirceu",           role: "transportadora", transportadora: "Dirceu"          },
+  { usuario: "rodoprime",       senha: "RodoPrime2026$!",      nome: "Rodo Prime",       role: "transportadora", transportadora: "Rodo Prime"      },
 ];
 
 const CICLOS_TRANSPORTADORA = {
@@ -45,6 +57,15 @@ const CICLOS_TRANSPORTADORA = {
   "Favorita":         "demanda",
   "Ativa":            "mensal",
   "Bruno Transportes":"mensal",
+  "ARC":              "demanda",
+  "PAED":             "demanda",
+  "Matheus":          "demanda",
+  "Binho":            "demanda",
+  "Family":           "mensal",
+  "FSL":              "demanda",
+  "Cia Cargas":       "quinzena",
+  "Dirceu":           "quinzena",
+  "Rodo Prime":       "quinzena",
 };
 
 const OPCOES_CICLO = {
@@ -61,27 +82,89 @@ function getCiclosTransp(nomeTransp) {
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPsRsnh1ZARyu7gVq3By7Jj_qvpwaBSrDQCDoA3j7P9w9v1Qcok5CSZHXqR6g8bP-8Bg/exec";
 
-const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","Outro"];
+// ─────────────────────────────────────────────
+//  REGRA DE PAGAMENTO
+//  Datas fixas: 10, 20, 30 de cada mês
+//  Antecedência mínima: 7 dias úteis a partir de hoje
+// ─────────────────────────────────────────────
+const DATAS_PGTO = [10, 20, 30];
+
+function adicionarDiasUteis(data, dias) {
+  const d = new Date(data);
+  let adicionados = 0;
+  while (adicionados < dias) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) adicionados++;
+  }
+  return d;
+}
+
+// Retorna a próxima data de pagamento válida a partir de uma data base
+function proximaDataPagamento(dataBase) {
+  const base = new Date(dataBase);
+  base.setHours(0,0,0,0);
+  const ano = base.getFullYear();
+  const mes = base.getMonth(); // 0-11
+
+  // Gera candidatos nos próximos 3 meses
+  const candidatos = [];
+  for (let m = 0; m <= 2; m++) {
+    const anoC = mes + m > 11 ? ano + 1 : ano;
+    const mesC = (mes + m) % 12;
+    for (const dia of DATAS_PGTO) {
+      // Ajusta para último dia do mês se necessário
+      const ultimoDia = new Date(anoC, mesC + 1, 0).getDate();
+      const diaReal = Math.min(dia, ultimoDia);
+      const cand = new Date(anoC, mesC, diaReal);
+      cand.setHours(0,0,0,0);
+      if (cand >= base) candidatos.push(cand);
+    }
+  }
+  candidatos.sort((a,b) => a-b);
+  return candidatos[0] || null;
+}
+
+// Analisa se o pagamento é viável dado o vencimento
+// Retorna { viavel, dataPagamentoSugerida, diasUteisRestantes }
+function analisarViabilidadePagamento(vencimentoISO) {
+  if (!vencimentoISO) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+
+  // Converte vencimento evitando bug de timezone do ISO (UTC vs local)
+  const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
+  const venc = new Date(vy, vm - 1, vd); venc.setHours(0,0,0,0);
+
+  // Data mínima para solicitar = hoje + 7 dias úteis
+  const minimoSolicitacao = adicionarDiasUteis(hoje, 7);
+
+  // Próxima data de pagamento a partir do mínimo de solicitação
+  const proxPgto = proximaDataPagamento(minimoSolicitacao);
+
+  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null };
+
+  const viavel = proxPgto <= venc;
+
+  // Se não viável, a data sugerida é a proxPgto mesmo (será após o vencimento)
+  const dataSugerida = proxPgto;
+
+  return {
+    viavel,
+    dataPagamentoSugerida: dataSugerida,
+    dataPagamentoStr: dataSugerida
+      ? `${String(dataSugerida.getDate()).padStart(2,"0")}/${String(dataSugerida.getMonth()+1).padStart(2,"0")}/${dataSugerida.getFullYear()}`
+      : null,
+  };
+}
+
+const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Outro"];
 const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","BeautyHub"];
 const CDs    = ["CD MG","CD SP","CD ES","CD RJ"];
 const meses  = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const anos   = ["2023","2024","2025","2026","2027","2028","2029","2030"];
 const motivosDesc = ["Extravio/Avaria","Penalidade por SLA","Devolução Indevida de Pedidos","Desconto por Volume","Ajuste Contratual","Contestação de Fatura","Outro"];
 
-const hoje  = new Date();
-const dPlus = d => { const x=new Date(hoje); x.setDate(x.getDate()+d); return x.toISOString().split("T")[0]; };
-const dMinus= d => { const x=new Date(hoje); x.setDate(x.getDate()-d); return x.toISOString().split("T")[0]; };
-
-const MOCK_FATURAS = [
-  { id:1, transportadora:"KR",       empresa:"Ápice",     cd:"CD SP", seg:"B2B", natureza:"Frete", vencimento:dPlus(3),   valor:12480.50, desconto:0,    ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["fatura_kr_jun.pdf"],           status:"Pendente", dataPagamento:"" },
-  { id:2, transportadora:"Unixlog",  empresa:"Barbour's", cd:"CD MG", seg:"B2B", natureza:"Frete", vencimento:dPlus(1),   valor:8320.00,  desconto:500,  ciclo:"1ª Quinzena", mes:"Junho", ano:"2025", arquivos:["fatura_unixlog.pdf","mem.xlsx"],status:"Pendente", dataPagamento:"" },
-  { id:3, transportadora:"Jamef",    empresa:"BeautyHub", cd:"CD RJ", seg:"B2B", natureza:"Difal", vencimento:dPlus(12),  valor:5640.00,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["difal_jamef.pdf"],             status:"Pendente", dataPagamento:"" },
-  { id:4, transportadora:"Logan",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(5),  valor:21000.00, desconto:1200, ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["fatura_logan_mai.pdf"],        status:"Paga",     dataPagamento:"10/05/2025" },
-  { id:5, transportadora:"Correios", empresa:"Kokeshi",   cd:"CD ES", seg:"B2C", natureza:"Frete", vencimento:dMinus(2),  valor:3870.75,  desconto:0,    ciclo:"1ª Quinzena", mes:"Junho", ano:"2025", arquivos:["correios_jun_q1.pdf"],         status:"Pendente", dataPagamento:"" },
-  { id:6, transportadora:"Favorita", empresa:"Rituária",  cd:"CD RJ", seg:"B2B", natureza:"Frete", vencimento:dPlus(20),  valor:15200.00, desconto:800,  ciclo:"Mensal",      mes:"Junho", ano:"2025", arquivos:["favorita_jun.pdf","nfe.xml"],  status:"Pendente", dataPagamento:"" },
-  { id:7, transportadora:"J&T",      empresa:"Lescent",   cd:"CD ES", seg:"B2C", natureza:"Difal", vencimento:dPlus(2),   valor:9450.20,  desconto:0,    ciclo:"2ª Quinzena", mes:"Junho", ano:"2025", arquivos:["jt_difal_jun_q2.pdf"],         status:"Pendente", dataPagamento:"" },
-  { id:8, transportadora:"Anjun",    empresa:"Gocase",    cd:"CD MG", seg:"B2C", natureza:"Frete", vencimento:dMinus(10), valor:6780.00,  desconto:300,  ciclo:"Mensal",      mes:"Maio",  ano:"2025", arquivos:["anjun_mai.pdf"],               status:"Paga",     dataPagamento:"02/05/2025" },
-];
+const MOCK_FATURAS = [];
 
 const Icon = ({ name, size=16, color="currentColor" }) => {
   const icons = {
@@ -296,10 +379,19 @@ select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 .setup-notice code{font-family:monospace;font-size:10px;background:rgba(253,224,71,0.15);padding:1px 4px;border-radius:2px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.fade-in{animation:fadeIn .3s ease both;}
+.page,.page-sm{animation:fadeIn .25s ease both;}
 `;
 
 const fmtBRL  = v => `R$ ${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const fmtDate = s => { if(!s)return"—"; const [y,m,d]=s.split("-"); return `${d}/${m}/${y}`; };
+const fmtAviso = v => {
+  if (!v) return "";
+  if (v.includes("T")) return fmtDate(v.split("T")[0]);
+  if (v.includes("-") && v.length === 10) return fmtDate(v);
+  return v;
+};
 const diasAteVencer = s => {
   if(!s) return 9999;
   const d = Math.ceil((new Date(s)-new Date())/86400000);
@@ -474,7 +566,7 @@ function LoginInicial({ onLogin }) {
 }
 
 function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
-  const blank={numeroFatura:"",transportadora:transportadoraFixa||"",transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:"",natureza:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};
+  const blank={numeroFatura:"",transportadora:transportadoraFixa||"",transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};
   const [f,setF]=useState(blank);
   const [done,setDone]=useState(false);
   const [loading,setLoading]=useState(false);
@@ -503,7 +595,8 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
 
   const valid=()=>{
     const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-    const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&f.natureza&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;
+    const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;
+    const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;
     const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;
     return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;
   };
@@ -515,26 +608,50 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
       const proto=gerarProtocoloLocal(nt, f.numeroFatura, f.vencimento);
       setProtocolo(proto);
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64};
+      const analiseVenc = analisarViabilidadePagamento(f.vencimento);
+      const avisoVenc = analiseVenc?.viavel===false ? analiseVenc.dataPagamentoStr : null;
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
-      const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:f.natureza,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:""};
+      const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
+      const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
       onNovaFatura(nova);setLoading(false);setDone(true);
     }catch(err){setLoading(false);alert("Erro ao enviar: "+err.message);}
   };
 
-  if(done)return<div className="spage"><div className="scard">
-    <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
-    <div className="stitle">Fatura Registrada</div>
-    <p className="ssub">{transportadoraFixa?"Sua fatura foi recebida e está sendo processada.":"Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle."}</p>
-    <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"16px",marginBottom:14,textAlign:"center"}}>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>Protocolo de Registro</div>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
-      <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Guarde este número para acompanhamento</div>
-    </div>
-    <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
-    {!transportadoraFixa&&<Preview d={f}/>}
-    <button className="btn-r" onClick={()=>{setF(blank);setDone(false);setProtocolo("");}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
-  </div></div>;
+  if(done){
+    const analiseSuccess = analisarViabilidadePagamento(f.vencimento);
+    return<div className="spage"><div className="scard">
+      <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
+      <div className="stitle">Fatura Registrada</div>
+      <p className="ssub">{transportadoraFixa?"Sua fatura foi recebida e está sendo processada.":"Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle."}</p>
+
+      {/* Protocolo */}
+      <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"16px",marginBottom:12,textAlign:"center"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>Protocolo de Registro</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
+        <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Guarde este número para acompanhamento</div>
+      </div>
+
+      {/* Info de pagamento — só aparece se prazo crítico */}
+      {analiseSuccess&&!analiseSuccess.viavel&&(
+        <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+            <Icon name="alert" size={13} color="var(--yellow)"/>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--yellow)"}}>Atenção — prazo de pagamento</span>
+          </div>
+          <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>
+            Não será possível realizar o pagamento no vencimento informado.<br/>
+            O pagamento mais próximo possível é em <strong style={{color:"var(--yellow)"}}>{analiseSuccess.dataPagamentoStr}</strong>.<br/>
+            <span style={{fontSize:12,color:"var(--muted)"}}>Nossa equipe entrará em contato para ajuste dos documentos.</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
+      {!transportadoraFixa&&<Preview d={f}/>}
+      <button className="btn-r" onClick={()=>{setF(blank);setDone(false);setProtocolo("");}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
+    </div></div>;
+  }
 
   return<div className="page-sm">
     <Sec num="1" iconName="building" title="Emissor" sub="Transportadora e empresa do grupo destinatária da fatura">
@@ -553,7 +670,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       <Field label="CD de Origem" req><Sel value={f.cdOrigem} onChange={s("cdOrigem")} options={CDs} placeholder="Selecione o CD..."/></Field>
     </Sec>
     <Sec num="3" iconName="shuffle" title="Segmentação" sub="Canal de operação">
-      <Field label="Canal" req><Tgl value={f.segmentacao} onChange={s("segmentacao")} options={["B2B","B2C"]}/></Field>
+      <Field label="Canal" req><Tgl value={f.segmentacao} onChange={s("segmentacao")} options={["B2B","B2C","Inbound","Fábrica"]}/></Field>
     </Sec>
     <Sec num="4" iconName="calendar" title="Período de Referência" sub="Competência e ciclo de faturamento">
       <div className="g2" style={{marginBottom:12}}>
@@ -569,8 +686,28 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     </Sec>
     <Sec num="5" iconName="dollar" title="Dados Financeiros" sub="Natureza, vencimento e valor da cobrança">
       <div className="g3" style={{marginBottom:12}}>
-        <Field label="Natureza" req><Sel value={f.natureza} onChange={s("natureza")} options={["Frete","Difal"]} placeholder="Tipo..."/></Field>
+        <Field label="Natureza" req>
+          <Sel value={f.natureza} onChange={v=>{s("natureza")(v);s("naturezaOutro")("");}} options={["Frete","Difal","Transferência de Material","Outro"]} placeholder="Tipo..."/>
+        </Field>
+        {f.natureza==="Outro"&&<Field label="Descreva a natureza" req><Inp value={f.naturezaOutro||""} onChange={s("naturezaOutro")} placeholder="Ex: Armazenagem, Manuseio..."/></Field>}
         <Field label="Vencimento" req><Inp type="date" value={f.vencimento} onChange={s("vencimento")}/></Field>
+        {f.vencimento&&(()=>{
+          const analise = analisarViabilidadePagamento(f.vencimento);
+          if (!analise || analise.viavel) return null;
+          return (
+            <div style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
+                <Icon name="alert" size={13} color="var(--yellow)"/>
+                Pagamento fora do prazo!
+              </div>
+              <div style={{color:"var(--muted)",lineHeight:1.6}}>
+                Não há data de pagamento disponível antes do vencimento com os 7 dias úteis de antecedência exigidos.<br/>
+                Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong><br/>
+                <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
+              </div>
+            </div>
+          );
+        })()}
         <Field label="Valor Bruto" req><Inp value={f.valorBruto} onChange={v=>s("valorBruto")(fmtCur(v))} placeholder="0,00" prefix="R$"/></Field>
       </div>
       <div className="disc-box">
@@ -605,19 +742,32 @@ function Gestao({ faturas: faturasLocais }) {
   const [faturas,setFaturas]=useState(faturasLocais);
   const [carregando,setCarregando]=useState(true);
   const [erroCarregar,setErroCarregar]=useState(false);
-  const [filtroTransp,setFiltroTransp]=useState("");
-  const [filtroStatus,setFiltroStatus]=useState("");
-  const [filtroEmp,setFiltroEmp]=useState("");
-  const [filtroNatureza,setFiltroNatureza]=useState("");
-  const [filtroMes,setFiltroMes]=useState("");
-  const [filtroAno,setFiltroAno]=useState("");
-  const [filtroPgto,setFiltroPgto]=useState("");
-  const [busca,setBusca]=useState("");
+  // Filtros da aba Faturas
+  const [filtroTransp,   setFiltroTransp]   = useState("");
+  const [filtroStatus,   setFiltroStatus]   = useState("");
+  const [filtroEmp,      setFiltroEmp]      = useState("");
+  const [filtroNatureza, setFiltroNatureza] = useState("");
+  const [filtroMes,      setFiltroMes]      = useState("");
+  const [filtroAno,      setFiltroAno]      = useState("");
+  const [filtroPgto,     setFiltroPgto]     = useState("");
+  const [busca,          setBusca]          = useState("");
+
+  // Filtros da aba Resumo (independentes)
+  const [rTransp,   setRTransp]   = useState("");
+  const [rEmp,      setREmp]      = useState("");
+  const [rNatureza, setRNatureza] = useState("");
+  const [rMes,      setRMes]      = useState("");
+  const [rAno,      setRAno]      = useState("");
+  const [rPgto,     setRPgto]     = useState("");
+  const [rBusca,    setRBusca]    = useState("");
   const [selecionadas,setSelecionadas]=useState(new Set());
   const [marcando,setMarcando]=useState(false);
   const [pagandoId,setPagandoId]=useState(null);
   const [dataPgtoInput,setDataPgtoInput]=useState("");
+  const [ajustandoId,setAjustandoId]=useState(null);
+  const [novaDataVenc,setNovaDataVenc]=useState("");
   const [subAba,setSubAba]=useState("resumo");
+  const [historicoData,setHistoricoData]=useState("");
 
   useEffect(()=>{
     const carregar=async()=>{
@@ -635,9 +785,6 @@ function Gestao({ faturas: faturasLocais }) {
     return [...faturas,...novas].map((f,idx)=>({...f,_key:`f-${idx}-${f.protocolo||f.id}`}));
   },[faturas,faturasLocais]);
 
-  const totalBruto     = todasFaturas.reduce((s,f)=>s+(f.valor||0),0);
-  const totalDescontos = todasFaturas.reduce((s,f)=>s+(f.desconto||0),0);
-  const totalLiquido   = totalBruto-totalDescontos;
   const vencidos  = todasFaturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);
   const alertas   = todasFaturas.filter(f=>{
     if(f.status==="Paga"||!f.vencimento) return false;
@@ -645,12 +792,6 @@ function Gestao({ faturas: faturasLocais }) {
     const du=diasUteisAteVencer(f.vencimento);
     return dc>=0 && du<=6;
   });
-
-  const porTransp=useMemo(()=>{
-    const m={};todasFaturas.forEach(f=>{m[f.transportadora||"—"]=(m[f.transportadora||"—"]||0)+(f.valor||0);});
-    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-  },[todasFaturas]);
-  const maxTransp=porTransp[0]?.[1]||1;
 
   const faturasVisiveis=useMemo(()=>todasFaturas.filter(f=>{
     const dc=diasAteVencer(f.vencimento);
@@ -683,8 +824,44 @@ function Gestao({ faturas: faturasLocais }) {
     finally{setMarcando(false);}
   };
 
+  const registrarAjuste=async(protocolo, novoVencimento)=>{
+    try{
+      const [y,m,d]=novoVencimento.split("-");
+      const novoVencFmt=`${d}/${m}/${y}`;
+      // Verifica se novo vencimento resolve o prazo crítico
+      const analise = analisarViabilidadePagamento(novoVencimento);
+      const novoAviso = analise?.viavel===false ? analise.dataPagamentoStr : null;
+      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:novoVencFmt,novoAviso:novoAviso||""})});
+      setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento,avisoVencimento:novoAviso||""}:f));
+      setAjustandoId(null);
+      setNovaDataVenc("");
+    }catch(e){alert("Erro: "+e.message);}
+  };
+
   const limparFiltros=()=>{setFiltroTransp("");setFiltroStatus("");setFiltroEmp("");setFiltroNatureza("");setFiltroMes("");setFiltroAno("");setFiltroPgto("");setBusca("");};
   const temFiltro=filtroTransp||filtroStatus||filtroEmp||filtroNatureza||filtroMes||filtroAno||filtroPgto||busca;
+
+  const faturasResumo=useMemo(()=>todasFaturas.filter(f=>{
+    const paga=f.status==="Paga";
+    if(rTransp   && (f.transportadora||"")!==rTransp)   return false;
+    if(rEmp      && (f.empresa||"")!==rEmp)             return false;
+    if(rNatureza && (f.natureza||"")!==rNatureza)       return false;
+    if(rMes      && (f.mes||"")!==rMes)                 return false;
+    if(rAno      && (f.ano||"")!==rAno)                 return false;
+    if(rPgto==="Paga"    && !paga)                      return false;
+    if(rPgto==="Pendente"&&  paga)                      return false;
+    if(rBusca){const q=rBusca.toLowerCase();const str=v=>(v==null?"":String(v)).toLowerCase();if(![f.transportadora,f.empresa,f.numeroFatura,f.cd,f.natureza,f.seg].some(v=>str(v).includes(q)))return false;}
+    return true;
+  }),[todasFaturas,rTransp,rEmp,rNatureza,rMes,rAno,rPgto,rBusca]);
+
+  const limparFiltrosResumo=()=>{setRTransp("");setREmp("");setRNatureza("");setRMes("");setRAno("");setRPgto("");setRBusca("");};
+  const temFiltroResumo=rTransp||rEmp||rNatureza||rMes||rAno||rPgto||rBusca;
+
+  const porTranspResumo=useMemo(()=>{
+    const m={};faturasResumo.forEach(f=>{m[f.transportadora||"—"]=(m[f.transportadora||"—"]||0)+(f.valor||0);});
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  },[faturasResumo]);
+  const maxTranspResumo=porTranspResumo[0]?.[1]||1;
   const recarregar=async()=>{setCarregando(true);try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);};};
 
   return<div className="page">
@@ -699,25 +876,87 @@ function Gestao({ faturas: faturasLocais }) {
     </div>
 
     {subAba==="resumo"&&<>
-      <div className="kpi-grid">
-        <div className="kpi k-amber"><div className="kpi-header"><div className="kpi-label">Total Bruto</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(totalBruto)}</div><div className="kpi-sub">{todasFaturas.length} fatura{todasFaturas.length!==1?"s":""}</div></div>
-        <div className="kpi k-blue"><div className="kpi-header"><div className="kpi-label">Total Descontos</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(totalDescontos)}</div><div className="kpi-sub">{todasFaturas.filter(f=>f.desconto>0).length} com desconto</div></div>
-        <div className="kpi k-green"><div className="kpi-header"><div className="kpi-label">Total Líquido</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(totalLiquido)}</div><div className="kpi-sub">bruto menos descontos</div></div>
-        <div className="kpi k-red"><div className="kpi-header"><div className="kpi-label">Vencido (aberto)</div><div className="kpi-icon"><Icon name="alert" size={18}/></div></div><div className="kpi-value">{fmtBRL(vencidos.reduce((s,f)=>s+(f.valor-(f.desconto||0)),0))}</div><div className="kpi-sub">{vencidos.length} fatura{vencidos.length!==1?"s":""}</div></div>
-      </div>
-      {(alertas.length>0||vencidos.length>0)&&<div className="alert-strip">
-        <div className="alert-icon"><Icon name="alert" size={16}/></div>
-        <div>
-          {vencidos.length>0&&<div className="alert-title">{vencidos.length} fatura{vencidos.length!==1?"s":""} vencida{vencidos.length!==1?"s":""} em aberto</div>}
-          {alertas.length>0&&<div className="alert-title yellow">{alertas.length} fatura{alertas.length!==1?"s":""} vencendo em até 6 dias úteis</div>}
-          <div className="alert-list">{[...vencidos,...alertas].map(f=><div key={f._key||f.id}>· {f.transportadora} — {fmtBRL(f.valor)} — venc. {fmtDate(f.vencimento)}</div>)}</div>
+      {/* Filtros independentes do resumo */}
+      <div className="filters" style={{marginBottom:16}}>
+        <div style={{position:"relative"}}>
+          <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span>
+          <input className="filter-inp" style={{paddingLeft:28,minWidth:180}} placeholder="Transportadora, empresa..." value={rBusca} onChange={e=>setRBusca(e.target.value)}/>
         </div>
-      </div>}
+        <select className="filter-inp" value={rMes} onChange={e=>setRMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
+        <select className="filter-inp" value={rAno} onChange={e=>setRAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
+        <select className="filter-inp" value={rTransp} onChange={e=>setRTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadoras.filter(t=>t!=="Outro").map(t=><option key={t}>{t}</option>)}</select>
+        <select className="filter-inp" value={rNatureza} onChange={e=>setRNatureza(e.target.value)}><option value="">Todas as naturezas</option><option>Frete</option><option>Difal</option><option>Transferência de Material</option><option>Outro</option></select>
+        <select className="filter-inp" value={rEmp} onChange={e=>setREmp(e.target.value)}><option value="">Todas as empresas</option>{empresasGrupo.map(e=><option key={e}>{e}</option>)}</select>
+        <select className="filter-inp" value={rPgto} onChange={e=>setRPgto(e.target.value)}><option value="">Pagas e pendentes</option><option value="Pendente">Pendentes</option><option value="Paga">Pagas</option></select>
+        {temFiltroResumo&&<button className="filter-clear" onClick={limparFiltrosResumo}>Limpar</button>}
+        <span className="results-count">{faturasResumo.length} resultado{faturasResumo.length!==1?"s":""}</span>
+      </div>
+
+      {/* KPIs — respondem ao faturasResumo */}
+      <div className="kpi-grid">
+        <div className="kpi k-amber"><div className="kpi-header"><div className="kpi-label">Total Bruto</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.valor||0),0))}</div><div className="kpi-sub">{faturasResumo.length} fatura{faturasResumo.length!==1?"s":""}</div></div>
+        <div className="kpi k-blue"><div className="kpi-header"><div className="kpi-label">Total Descontos</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.desconto||0),0))}</div><div className="kpi-sub">{faturasResumo.filter(f=>f.desconto>0).length} com desconto</div></div>
+        <div className="kpi k-green"><div className="kpi-header"><div className="kpi-label">Total Líquido</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.valor||0)-(f.desconto||0),0))}</div><div className="kpi-sub">bruto menos descontos</div></div>
+        <div className="kpi k-red"><div className="kpi-header"><div className="kpi-label">Vencido (aberto)</div><div className="kpi-icon"><Icon name="alert" size={18}/></div></div>
+          <div className="kpi-value">{fmtBRL(faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).reduce((s,f)=>s+(f.valor-(f.desconto||0)),0))}</div>
+          <div className="kpi-sub">{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length} fatura{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length!==1?"s":""}</div>
+        </div>
+      </div>
+
+      {/* 2 quadros: Vencidas e Urgentes — respondem ao faturasResumo */}
+      {(()=>{
+        const venc = faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);
+        const urg  = faturasResumo.filter(f=>{if(f.status==="Paga"||!f.vencimento)return false;const dc=diasAteVencer(f.vencimento);const du=diasUteisAteVencer(f.vencimento);return dc>=0&&du<=6;});
+        return <div className="g2" style={{marginBottom:14}}>
+          <div style={{background:"var(--red-g)",border:"1px solid var(--red-b)",borderRadius:8,padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Icon name="alert" size={15} color="var(--red)"/>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--red)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Vencidas em aberto ({venc.length})</span>
+            </div>
+            {venc.length===0
+              ? <div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura vencida 🎉</div>
+              : <div style={{display:"flex",flexDirection:"column",gap:5}}>{venc.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)}</span></div>)}</div>
+            }
+          </div>
+          <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"14px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Icon name="clock" size={15} color="var(--yellow)"/>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--yellow)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Urgente — até 6 dias úteis ({urg.length})</span>
+            </div>
+            {urg.length===0
+              ? <div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura urgente</div>
+              : <div style={{display:"flex",flexDirection:"column",gap:5}}>{urg.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)} · <span style={{color:"var(--yellow)"}}>{diasUteisAteVencer(f.vencimento)}du</span></span></div>)}</div>
+            }
+          </div>
+        </div>;
+      })()}
+
+      {/* Avisos de prazo crítico */}
+      {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length>0&&(
+        <div style={{background:"rgba(96,165,250,0.08)",border:"1px solid var(--blue-b)",borderRadius:8,padding:"12px 15px",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <Icon name="alert" size={14} color="var(--blue)"/>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--blue)",letterSpacing:"0.04em",textTransform:"uppercase"}}>
+              {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length} fatura{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length!==1?"s":""} com prazo crítico — contato necessário
+            </span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").map(f=>(
+              <div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)"}}>
+                · <span style={{color:"var(--text)",fontWeight:600}}>{f.transportadora}</span> — {fmtBRL(f.valor)} — venc. {fmtDate(f.vencimento)} — pagamento possível em <span style={{color:"var(--blue)"}}>{fmtAviso(f.avisoVencimento)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico — responde ao faturasResumo */}
       <div className="card-plain">
         <div className="sec-head" style={{marginBottom:16}}><div className="sec-title">Valor por Transportadora</div></div>
-        <div className="bar-chart">{porTransp.map(([nome,val])=>(
-          <div className="bar-row" key={nome}><div className="bar-label">{nome}</div><div className="bar-track"><div className="bar-fill" style={{width:`${(val/maxTransp)*100}%`}}/></div><div className="bar-amt">{fmtBRL(val)}</div></div>
+        <div className="bar-chart">{porTranspResumo.map(([nome,val])=>(
+          <div className="bar-row" key={nome}><div className="bar-label">{nome}</div><div className="bar-track"><div className="bar-fill" style={{width:`${(val/maxTranspResumo)*100}%`}}/></div><div className="bar-amt">{fmtBRL(val)}</div></div>
         ))}</div>
+        {porTranspResumo.length===0&&<div style={{textAlign:"center",color:"var(--muted)",fontSize:13,padding:"16px"}}>Nenhum resultado para os filtros selecionados</div>}
       </div>
     </>}
 
@@ -730,7 +969,7 @@ function Gestao({ faturas: faturasLocais }) {
         <select className="filter-inp" value={filtroMes} onChange={e=>setFiltroMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={filtroAno} onChange={e=>setFiltroAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
         <select className="filter-inp" value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadoras.filter(t=>t!=="Outro").map(t=><option key={t}>{t}</option>)}</select>
-        <select className="filter-inp" value={filtroNatureza} onChange={e=>setFiltroNatureza(e.target.value)}><option value="">Frete e Difal</option><option>Frete</option><option>Difal</option></select>
+        <select className="filter-inp" value={filtroNatureza} onChange={e=>setFiltroNatureza(e.target.value)}><option value="">Todas as naturezas</option><option>Frete</option><option>Difal</option><option>Transferência de Material</option><option>Outro</option></select>
         <select className="filter-inp" value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)}><option value="">Todos os status</option><option>Vencido</option><option>Urgente</option><option>A vencer</option></select>
         <select className="filter-inp" value={filtroEmp} onChange={e=>setFiltroEmp(e.target.value)}><option value="">Todas as empresas</option>{empresasGrupo.map(e=><option key={e}>{e}</option>)}</select>
         <select className="filter-inp" value={filtroPgto} onChange={e=>setFiltroPgto(e.target.value)}><option value="">Pagas e pendentes</option><option value="Pendente">Pendentes</option><option value="Paga">Pagas</option></select>
@@ -762,10 +1001,10 @@ function Gestao({ faturas: faturasLocais }) {
                 onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>f.status!=="Paga"&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/>
             </th>
             <th>Nº Fatura</th><th>Transportadora</th><th>Empresa</th><th>Natureza</th>
-            <th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Pgto</th>
+            <th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Ajuste</th><th>Pgto</th>
           </tr></thead>
           <tbody>
-            {faturasVisiveis.length===0&&<tr><td colSpan={12} style={{textAlign:"center",color:"var(--muted)",padding:"28px"}}>Nenhuma fatura encontrada</td></tr>}
+            {faturasVisiveis.length===0&&<tr><td colSpan={13} style={{textAlign:"center",color:"var(--muted)",padding:"28px"}}>Nenhuma fatura encontrada</td></tr>}
             {faturasVisiveis.map(f=>{
               const paga=f.status==="Paga";
               const sel=f.protocolo&&selecionadas.has(f.protocolo);
@@ -781,6 +1020,23 @@ function Gestao({ faturas: faturasLocais }) {
                 <td style={{fontSize:12,color:"var(--muted)"}}>{f.desconto>0?fmtBRL(f.desconto):"—"}</td>
                 <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--green)"}}>{fmtBRL((f.valor||0)-(f.desconto||0))}</td>
                 <td>{statusBadge(f.vencimento,paga)}</td>
+                {/* Coluna Ajuste — só para faturas com prazo crítico */}
+                <td>
+                  {!paga&&f.avisoVencimento&&f.protocolo&&(
+                    ajustandoId===f.protocolo
+                      ? <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                          <input type="date" autoFocus value={novaDataVenc} onChange={e=>setNovaDataVenc(e.target.value)}
+                            style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--blue-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
+                          <button onClick={()=>{if(!novaDataVenc){alert("Informe a nova data.");return;}registrarAjuste(f.protocolo,novaDataVenc);}}
+                            style={{background:"var(--blue)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
+                          <button onClick={()=>{setAjustandoId(null);setNovaDataVenc("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
+                        </div>
+                      : <button onClick={()=>{setAjustandoId(f.protocolo);setNovaDataVenc("");}}
+                          style={{background:"none",border:"1px solid var(--blue-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--blue)"}}>
+                          Ajustar
+                        </button>
+                  )}
+                </td>
                 <td>
                   {!paga&&f.protocolo&&(
                     pagandoId===f.protocolo
@@ -806,21 +1062,58 @@ function Gestao({ faturas: faturasLocais }) {
     </>}
 
     {subAba==="historico"&&<>
-      <div style={{marginBottom:12}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase"}}>{todasFaturas.length} upload{todasFaturas.length!==1?"s":""} registrado{todasFaturas.length!==1?"s":""}</span></div>
-      {[...todasFaturas].reverse().map(f=>(
-        <div className="hist-item" key={f._key||f.id}>
-          <div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div>
-          <div>
-            <div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span></div>
-            <div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos.length} arquivo{f.arquivos.length!==1?"s":""}</div>
-          </div>
-          <div className="hist-right">
-            <div className="hist-val">{fmtBRL(f.valor)}</div>
-            <div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>
-            <div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div>
-          </div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase"}}>
+          {todasFaturas.length} upload{todasFaturas.length!==1?"s":""} registrado{todasFaturas.length!==1?"s":""}
+        </span>
+        <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:12,color:"var(--muted)"}}>Filtrar por data de envio:</span>
+          <input type="date" value={historicoData} onChange={e=>setHistoricoData(e.target.value)}
+            style={{padding:"5px 9px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
+          {historicoData&&<button onClick={()=>setHistoricoData("")} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,padding:"4px 9px",cursor:"pointer",color:"var(--muted)",fontSize:11,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Limpar</button>}
         </div>
-      ))}
+      </div>
+      {[...todasFaturas]
+        .filter(f=>{
+          if(!historicoData) return true;
+          if(!f.dataEnvio) return false;
+          // Normaliza dataEnvio — pode vir como Date object, ISO string ou yyyy-mm-dd
+          let de = f.dataEnvio;
+          if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
+          if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
+          if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
+          return de === historicoData;
+        })
+        .reverse()
+        .map(f=>(
+          <div className="hist-item" key={f._key||f.id}>
+            <div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div>
+            <div style={{flex:1,minWidth:0}}>
+              <div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span>
+                {f.avisoVencimento&&f.status!=="Paga"&&<span style={{marginLeft:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:800,letterSpacing:"0.08em",padding:"1px 6px",borderRadius:3,background:"rgba(96,165,250,0.12)",color:"var(--blue)",border:"1px solid var(--blue-b)"}}>PRAZO CRÍTICO</span>}
+              </div>
+              <div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos?.length||0} arquivo{(f.arquivos?.length||0)!==1?"s":""}</div>
+              {f.avisoVencimento&&f.status!=="Paga"&&<div style={{fontSize:11,color:"var(--blue)",marginTop:3}}>Próximo pagamento possível: {fmtAviso(f.avisoVencimento)}</div>}
+            </div>
+            <div className="hist-right">
+              <div className="hist-val">{fmtBRL(f.valor)}</div>
+              <div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>
+              {f.dataEnvio&&<div style={{fontSize:10,color:"var(--dim)",marginTop:2}}>Enviado: {fmtDate(f.dataEnvio)}</div>}
+              <div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div>
+            </div>
+          </div>
+        ))}
+      {todasFaturas.filter(f=>{
+        if(!historicoData) return true;
+        if(!f.dataEnvio) return false;
+        let de = f.dataEnvio;
+        if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
+        if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
+        if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
+        return de === historicoData;
+      }).length===0&&(
+        <div style={{textAlign:"center",color:"var(--muted)",padding:"28px",fontSize:13}}>Nenhuma fatura encontrada para esta data</div>
+      )}
     </>}
   </div>;
 }
