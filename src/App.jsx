@@ -8,6 +8,7 @@ const GESTAO_GOOGLE_EMAILS = {
   "joao.conde@gocase.com": { nome: "Transportes", role: "gestao" },
   "kelly.sousa@gocase.com": { nome: "Transportes", role: "gestao" },
   "talita.oliveira@gocase.com": { nome: "Transportes", role: "gestao" },
+
 };
 
 const USUARIOS = [
