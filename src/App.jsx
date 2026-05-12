@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
 const GESTAO_GOOGLE_EMAILS = {
-  "marcos.luiz@gocase.com":  { nome: "Marcos", role: "gestao" },
+  "marcos@suaempresa.com":  { nome: "Marcos", role: "gestao" },
   "jaine.caboclo@gocase.com": { nome: "Jaine", role: "gestao" },
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
   "joao.conde@gocase.com": { nome: "Transportes", role: "gestao" },
@@ -84,6 +84,39 @@ function getCiclosTransp(nomeTransp) {
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPsRsnh1ZARyu7gVq3By7Jj_qvpwaBSrDQCDoA3j7P9w9v1Qcok5CSZHXqR6g8bP-8Bg/exec";
 
 // ─────────────────────────────────────────────
+//  PRAZO CONTRATUAL DE PAGAMENTO (dias corridos)
+//  Para alterar: edite o número ao lado da transportadora
+// ─────────────────────────────────────────────
+const PRAZO_PAGAMENTO = {
+  "Anjun":            30,
+  "Correios":         21,
+  "Diálogo":          30,
+  "Diaslog":          30,
+  "Gollog":           30,
+  "J&T":              30,
+  "Log Serviços":     30,
+  "Logan":            30,
+  "Unixlog":          30,
+  "SR Log":           15,
+  "SP Fly":           30,
+  "KR":               21,
+  "Jamef":            30,
+  "Favorita":         15,
+  "Ativa":            30,
+  "Bruno Transportes":15,
+  "ARC":              30,
+  "PAED":             30,
+  "Matheus":          30,
+  "Binho":            15,
+  "Family":           20,
+  "FSL":              27,
+  "Cia Cargas":       30,
+  "Dirceu":           15,
+  "Rodo Prime":       15,
+};
+const PRAZO_PADRAO = 30; // usado para transportadoras não listadas
+
+// ─────────────────────────────────────────────
 //  REGRA DE PAGAMENTO
 //  Datas fixas: 10, 20, 30 de cada mês
 //  Antecedência mínima: 7 dias úteis a partir de hoje
@@ -126,9 +159,9 @@ function proximaDataPagamento(dataBase) {
   return candidatos[0] || null;
 }
 
-// Analisa se o pagamento é viável dado o vencimento
-// Retorna { viavel, dataPagamentoSugerida, diasUteisRestantes }
-function analisarViabilidadePagamento(vencimentoISO) {
+// Analisa se o pagamento é viável dado o vencimento e a transportadora
+// Retorna { viavel, dataPagamentoSugerida, dataPagamentoStr, motivo }
+function analisarViabilidadePagamento(vencimentoISO, transportadora) {
   if (!vencimentoISO) return null;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
@@ -136,25 +169,33 @@ function analisarViabilidadePagamento(vencimentoISO) {
   const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
   const venc = new Date(vy, vm - 1, vd); venc.setHours(0,0,0,0);
 
-  // Data mínima para solicitar = hoje + 7 dias úteis
-  const minimoSolicitacao = adicionarDiasUteis(hoje, 7);
+  // 1. Data mínima por 7 dias úteis
+  const minimoUteis = adicionarDiasUteis(hoje, 7);
 
-  // Próxima data de pagamento a partir do mínimo de solicitação
-  const proxPgto = proximaDataPagamento(minimoSolicitacao);
+  // 2. Data máxima pelo prazo contratual da transportadora
+  const prazo = PRAZO_PAGAMENTO[transportadora] ?? PRAZO_PADRAO;
+  const maximoContratual = new Date(hoje);
+  maximoContratual.setDate(maximoContratual.getDate() + prazo);
+  maximoContratual.setHours(0,0,0,0);
 
-  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null };
+  // 3. Base para próxima data de pagamento = maior entre os dois
+  const baseCalculo = minimoUteis > maximoContratual ? minimoUteis : maximoContratual;
+
+  // 4. Próxima data de pagamento disponível a partir da base
+  const proxPgto = proximaDataPagamento(baseCalculo);
+
+  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null, dataPagamentoStr: null };
 
   const viavel = proxPgto <= venc;
 
-  // Se não viável, a data sugerida é a proxPgto mesmo (será após o vencimento)
-  const dataSugerida = proxPgto;
+  const dtStr = `${String(proxPgto.getDate()).padStart(2,"0")}/${String(proxPgto.getMonth()+1).padStart(2,"0")}/${proxPgto.getFullYear()}`;
 
   return {
     viavel,
-    dataPagamentoSugerida: dataSugerida,
-    dataPagamentoStr: dataSugerida
-      ? `${String(dataSugerida.getDate()).padStart(2,"0")}/${String(dataSugerida.getMonth()+1).padStart(2,"0")}/${dataSugerida.getFullYear()}`
-      : null,
+    dataPagamentoSugerida: proxPgto,
+    dataPagamentoStr: dtStr,
+    prazoContratual: prazo,
+    baseUsada: minimoUteis > maximoContratual ? "7du" : "contratual",
   };
 }
 
@@ -567,19 +608,35 @@ function LoginInicial({ onLogin }) {
 }
 
 function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
-  const blank={numeroFatura:"",transportadora:transportadoraFixa||"",transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};
-  const [f,setF]=useState(blank);
+  const getBlank = () => {
+    const transp = transportadoraFixa || "";
+    const ciclos = getCiclosTransp(transp);
+    return {
+      numeroFatura:"", transportadora:transp, transportadoraOutro:"",
+      marca:"", cdOrigem:"", segmentacao:"",
+      mes:"", ano:"",
+      ciclo: ciclos.length===1 ? ciclos[0] : "",
+      natureza:"", naturezaOutro:"", vencimento:"", valorBruto:"",
+      possuiDesconto:"", valorDesconto:"", motivoDesconto:"", motivoOutro:"", files:[]
+    };
+  };
+  const [f,setF]=useState(getBlank);
   const [done,setDone]=useState(false);
   const [loading,setLoading]=useState(false);
   const s=k=>v=>setF(p=>({...p,[k]:v}));
   const fmtCur=v=>{const n=v.replace(/\D/g,"");if(!n)return"";return(parseFloat(n)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
+  const resetForm = () => { setF(getBlank()); setDone(false); setLoading(false); setProtocolo(""); };
 
   const nomeTranspAtual = f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
   const ciclosDisponiveis = getCiclosTransp(nomeTranspAtual);
 
+  const prevTranspRef = useRef(nomeTranspAtual);
   useEffect(()=>{
+    if(!nomeTranspAtual) return;
+    if(prevTranspRef.current === nomeTranspAtual) return; // não disparar se não mudou
+    prevTranspRef.current = nomeTranspAtual;
     if(ciclosDisponiveis.length===1) s("ciclo")(ciclosDisponiveis[0]);
-    else if(!ciclosDisponiveis.includes(f.ciclo)) s("ciclo")("");
+    else s("ciclo")("");
   },[nomeTranspAtual]);
 
   // Protocolo determinístico — mesma lógica do Apps Script
@@ -601,7 +658,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
     const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;
     return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;
   };
-  const limpar=()=>{if(window.confirm("Deseja limpar todos os campos?"))setF(blank);};
+  const limpar=()=>{if(window.confirm("Deseja limpar todos os campos?"))resetForm();};
   const submit=async()=>{
     if(!valid())return; setLoading(true);
     try{
@@ -609,9 +666,19 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
       const proto=gerarProtocoloLocal(nt, f.numeroFatura, f.vencimento);
       setProtocolo(proto);
-      const analiseVenc = analisarViabilidadePagamento(f.vencimento);
+      const analiseVenc = analisarViabilidadePagamento(f.vencimento, nt);
       const avisoVenc = analiseVenc?.viavel===false ? analiseVenc.dataPagamentoStr : null;
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc};
+
+      // Verifica se vencimento está abaixo do prazo contratual
+      const prazoContratual = PRAZO_PAGAMENTO[nt] ?? PRAZO_PADRAO;
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const dataMinContratual = new Date(hoje);
+      dataMinContratual.setDate(dataMinContratual.getDate() + prazoContratual);
+      const [vy,vm,vd] = f.vencimento.split("-").map(Number);
+      const vencDate = new Date(vy, vm-1, vd); vencDate.setHours(0,0,0,0);
+      const vencimentoAbaixoContrato = vencDate < dataMinContratual;
+      const dataMinVencStr = `${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,prazoContratual,dataMinVencimento:dataMinVencStr};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
@@ -620,7 +687,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   };
 
   if(done){
-    const analiseSuccess = analisarViabilidadePagamento(f.vencimento);
+    const analiseSuccess = analisarViabilidadePagamento(f.vencimento, f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora);
     return<div className="spage"><div className="scard">
       <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
       <div className="stitle">Fatura Registrada</div>
@@ -650,7 +717,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
 
       <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
       {!transportadoraFixa&&<Preview d={f}/>}
-      <button className="btn-r" onClick={()=>{setF(blank);setDone(false);setProtocolo("");}}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
+      <button className="btn-r" onClick={resetForm}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
     </div></div>;
   }
 
@@ -693,7 +760,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
         {f.natureza==="Outro"&&<Field label="Descreva a natureza" req><Inp value={f.naturezaOutro||""} onChange={s("naturezaOutro")} placeholder="Ex: Armazenagem, Manuseio..."/></Field>}
         <Field label="Vencimento" req><Inp type="date" value={f.vencimento} onChange={s("vencimento")}/></Field>
         {f.vencimento&&(()=>{
-          const analise = analisarViabilidadePagamento(f.vencimento);
+          const analise = analisarViabilidadePagamento(f.vencimento, nomeTranspAtual);
           if (!analise || analise.viavel) return null;
           return (
             <div style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}>
@@ -702,8 +769,11 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
                 Pagamento fora do prazo!
               </div>
               <div style={{color:"var(--muted)",lineHeight:1.6}}>
-                Não há data de pagamento disponível antes do vencimento com os 7 dias úteis de antecedência exigidos.<br/>
-                Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong><br/>
+                Não há data de pagamento disponível antes do vencimento.<br/>
+                {analise.baseUsada==="contratual"
+                  ? <>Prazo contratual de <strong style={{color:"var(--yellow)"}}>{analise.prazoContratual} dias</strong> resulta em pagamento em <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
+                  : <>Prazo mínimo de <strong style={{color:"var(--yellow)"}}>7 dias úteis</strong> resulta em pagamento em <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
+                }<br/>
                 <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
               </div>
             </div>
@@ -829,8 +899,9 @@ function Gestao({ faturas: faturasLocais }) {
     try{
       const [y,m,d]=novoVencimento.split("-");
       const novoVencFmt=`${d}/${m}/${y}`;
-      // Verifica se novo vencimento resolve o prazo crítico
-      const analise = analisarViabilidadePagamento(novoVencimento);
+      // Busca transportadora da fatura para recalcular com prazo correto
+      const faturaAtual = faturas.find(f=>f.protocolo===protocolo);
+      const analise = analisarViabilidadePagamento(novoVencimento, faturaAtual?.transportadora||"");
       const novoAviso = analise?.viavel===false ? analise.dataPagamentoStr : null;
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:novoVencFmt,novoAviso:novoAviso||""})});
       setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento,avisoVencimento:novoAviso||""}:f));
