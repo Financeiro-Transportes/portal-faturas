@@ -14,7 +14,6 @@ const GESTAO_GOOGLE_EMAILS = {
 const USUARIOS = [
   { usuario: "marcos",  senha: "MarcosLuiz2026@",  nome: "Marcos", role: "gestao" },
   { usuario: "Dados",   senha: "timededados2026",  nome: "Dados",  role: "gestao" },
-  { usuario: "Transporte",   senha: "Timetransportes2026@",       nome: "Transportes",  role: "transportadora" },
   { usuario: "anjun",           senha: "AnJun2026",          nome: "Anjun",            role: "transportadora", transportadora: "Anjun"           },
   { usuario: "correios",        senha: "Correios2026@",       nome: "Correios",         role: "transportadora", transportadora: "Correios"        },
   { usuario: "dialogo",         senha: "Dialogo2026#",        nome: "Diálogo",          role: "transportadora", transportadora: "Diálogo"         },
@@ -201,7 +200,7 @@ function analisarViabilidadePagamento(vencimentoISO, transportadora) {
 }
 
 const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Outro"];
-const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","BeautyHub"];
+const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub"];
 const CDs    = ["CD MG","CD SP","CD ES","CD RJ"];
 const meses  = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const anos   = ["2023","2024","2025","2026","2027","2028","2029","2030"];
@@ -679,7 +678,7 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       const vencDate = new Date(vy, vm-1, vd); vencDate.setHours(0,0,0,0);
       const vencimentoAbaixoContrato = vencDate < dataMinContratual;
       const dataMinVencStr = `${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,prazoContratual,dataMinVencimento:dataMinVencStr};
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
@@ -771,9 +770,9 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
               </div>
               <div style={{color:"var(--muted)",lineHeight:1.6}}>
                 Não há data de pagamento disponível antes do vencimento.<br/>
-                {analise.baseUsada==="contratual"
+                {analise.baseUsada==="contratual" && PRAZO_PAGAMENTO[nomeTranspAtual]
                   ? <>Prazo contratual de <strong style={{color:"var(--yellow)"}}>{analise.prazoContratual} dias</strong> resulta em pagamento em <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
-                  : <>Prazo mínimo de <strong style={{color:"var(--yellow)"}}>7 dias úteis</strong> resulta em pagamento em <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
+                  : <>Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
                 }<br/>
                 <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
               </div>
@@ -935,6 +934,19 @@ function Gestao({ faturas: faturasLocais }) {
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   },[faturasResumo]);
   const maxTranspResumo=porTranspResumo[0]?.[1]||1;
+
+  // Listas dinâmicas baseadas nos dados reais da planilha
+  const naturezasUnicas = useMemo(()=>{
+    const base = ["Frete","Difal","Transferência de Material"];
+    const extras = [...new Set(todasFaturas.map(f=>f.natureza).filter(n=>n&&!base.includes(n)))].sort();
+    return [...base, ...extras];
+  },[todasFaturas]);
+
+  const transportadorasUnicas = useMemo(()=>{
+    const base = transportadoras.filter(t=>t!=="Outro");
+    const extras = [...new Set(todasFaturas.map(f=>f.transportadora).filter(t=>t&&!base.includes(t)))].sort();
+    return [...base, ...extras];
+  },[todasFaturas]);
   const recarregar=async()=>{setCarregando(true);try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);};};
 
   return<div className="page">
@@ -957,8 +969,8 @@ function Gestao({ faturas: faturasLocais }) {
         </div>
         <select className="filter-inp" value={rMes} onChange={e=>setRMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={rAno} onChange={e=>setRAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
-        <select className="filter-inp" value={rTransp} onChange={e=>setRTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadoras.filter(t=>t!=="Outro").map(t=><option key={t}>{t}</option>)}</select>
-        <select className="filter-inp" value={rNatureza} onChange={e=>setRNatureza(e.target.value)}><option value="">Todas as naturezas</option><option>Frete</option><option>Difal</option><option>Transferência de Material</option><option>Outro</option></select>
+        <select className="filter-inp" value={rTransp} onChange={e=>setRTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadorasUnicas.map(t=><option key={t}>{t}</option>)}</select>
+        <select className="filter-inp" value={rNatureza} onChange={e=>setRNatureza(e.target.value)}><option value="">Todas as naturezas</option>{naturezasUnicas.map(n=><option key={n}>{n}</option>)}</select>
         <select className="filter-inp" value={rEmp} onChange={e=>setREmp(e.target.value)}><option value="">Todas as empresas</option>{empresasGrupo.map(e=><option key={e}>{e}</option>)}</select>
         <select className="filter-inp" value={rPgto} onChange={e=>setRPgto(e.target.value)}><option value="">Pagas e pendentes</option><option value="Pendente">Pendentes</option><option value="Paga">Pagas</option></select>
         {temFiltroResumo&&<button className="filter-clear" onClick={limparFiltrosResumo}>Limpar</button>}
@@ -1041,8 +1053,8 @@ function Gestao({ faturas: faturasLocais }) {
         </div>
         <select className="filter-inp" value={filtroMes} onChange={e=>setFiltroMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={filtroAno} onChange={e=>setFiltroAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
-        <select className="filter-inp" value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadoras.filter(t=>t!=="Outro").map(t=><option key={t}>{t}</option>)}</select>
-        <select className="filter-inp" value={filtroNatureza} onChange={e=>setFiltroNatureza(e.target.value)}><option value="">Todas as naturezas</option><option>Frete</option><option>Difal</option><option>Transferência de Material</option><option>Outro</option></select>
+        <select className="filter-inp" value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadorasUnicas.map(t=><option key={t}>{t}</option>)}</select>
+        <select className="filter-inp" value={filtroNatureza} onChange={e=>setFiltroNatureza(e.target.value)}><option value="">Todas as naturezas</option>{naturezasUnicas.map(n=><option key={n}>{n}</option>)}</select>
         <select className="filter-inp" value={filtroStatus} onChange={e=>setFiltroStatus(e.target.value)}><option value="">Todos os status</option><option>Vencido</option><option>Urgente</option><option>A vencer</option></select>
         <select className="filter-inp" value={filtroEmp} onChange={e=>setFiltroEmp(e.target.value)}><option value="">Todas as empresas</option>{empresasGrupo.map(e=><option key={e}>{e}</option>)}</select>
         <select className="filter-inp" value={filtroPgto} onChange={e=>setFiltroPgto(e.target.value)}><option value="">Pagas e pendentes</option><option value="Pendente">Pendentes</option><option value="Paga">Pagas</option></select>
