@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
 const GESTAO_GOOGLE_EMAILS = {
-  "marcos@suaempresa.com":  { nome: "Marcos", role: "gestao" },
+  "marcos.luiz@gocase.com":  { nome: "Marcos", role: "gestao" },
   "jaine.caboclo@gocase.com": { nome: "Jaine", role: "gestao" },
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
   "joao.conde@gocase.com": { nome: "Transportes", role: "gestao" },
@@ -51,7 +51,7 @@ const CICLOS_TRANSPORTADORA = {
   "Log Serviços":     "mensal",
   "Logan":            "quinzena",
   "Unixlog":          "mensal",
-  "SR Log":           "mensal",
+  "SR Log":           "quinzena",
   "SP Fly":           "mensal",
   "KR":               "mensal",
   "Jamef":            "mensal",
