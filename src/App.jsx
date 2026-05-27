@@ -55,7 +55,7 @@ const CICLOS_TRANSPORTADORA = {
   "SP Fly":           "mensal",
   "KR":               "mensal",
   "Jamef":            "mensal",
-  "Favorita":         "demanda",
+  "Favorita":         "demanda",   // ✅ demanda (prazo 30 dias)
   "Ativa":            "mensal",
   "Bruno Transportes":"mensal",
   "ARC":              "demanda",
@@ -72,8 +72,9 @@ const CICLOS_TRANSPORTADORA = {
 const OPCOES_CICLO = {
   mensal:   ["Mensal"],
   quinzena: ["1ª Quinzena", "2ª Quinzena"],
-  demanda:  ["Mensal", "1ª Quinzena", "2ª Quinzena"],
-  livre:    ["Mensal", "1ª Quinzena", "2ª Quinzena"],
+  // ✅ Demanda agora inclui Semanal
+  demanda:  ["Mensal", "1ª Quinzena", "2ª Quinzena", "Semanal"],
+  livre:    ["Mensal", "1ª Quinzena", "2ª Quinzena", "Semanal"],
 };
 
 function getCiclosTransp(nomeTransp) {
@@ -83,10 +84,6 @@ function getCiclosTransp(nomeTransp) {
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPsRsnh1ZARyu7gVq3By7Jj_qvpwaBSrDQCDoA3j7P9w9v1Qcok5CSZHXqR6g8bP-8Bg/exec";
 
-// ─────────────────────────────────────────────
-//  PRAZO CONTRATUAL DE PAGAMENTO (dias corridos)
-//  Para alterar: edite o número ao lado da transportadora
-// ─────────────────────────────────────────────
 const PRAZO_PAGAMENTO = {
   "Anjun":            30,
   "Correios":         21,
@@ -97,11 +94,11 @@ const PRAZO_PAGAMENTO = {
   "Log Serviços":     30,
   "Logan":            30,
   "Unixlog":          30,
-  "SR Log":           15,
+  "SR Log":           15,   // usado só para validação de dias úteis
   "SP Fly":           30,
   "KR":               21,
   "Jamef":            30,
-  "Favorita":         15,
+  "Favorita":         30,   // ✅ 30 dias
   "Ativa":            30,
   "Bruno Transportes":15,
   "ARC":              30,
@@ -114,13 +111,8 @@ const PRAZO_PAGAMENTO = {
   "Dirceu":           15,
   "Rodo Prime":       15,
 };
-const PRAZO_PADRAO = 30; // usado para transportadoras não listadas
+const PRAZO_PADRAO = 30;
 
-// ─────────────────────────────────────────────
-//  REGRA DE PAGAMENTO
-//  Datas fixas: 10, 20, 30 de cada mês
-//  Antecedência mínima: 7 dias úteis a partir de hoje
-// ─────────────────────────────────────────────
 const DATAS_PGTO = [10, 20, 30];
 
 function adicionarDiasUteis(data, dias) {
@@ -134,20 +126,16 @@ function adicionarDiasUteis(data, dias) {
   return d;
 }
 
-// Retorna a próxima data de pagamento válida a partir de uma data base
 function proximaDataPagamento(dataBase) {
   const base = new Date(dataBase);
   base.setHours(0,0,0,0);
   const ano = base.getFullYear();
-  const mes = base.getMonth(); // 0-11
-
-  // Gera candidatos nos próximos 3 meses
+  const mes = base.getMonth();
   const candidatos = [];
   for (let m = 0; m <= 2; m++) {
     const anoC = mes + m > 11 ? ano + 1 : ano;
     const mesC = (mes + m) % 12;
     for (const dia of DATAS_PGTO) {
-      // Ajusta para último dia do mês se necessário
       const ultimoDia = new Date(anoC, mesC + 1, 0).getDate();
       const diaReal = Math.min(dia, ultimoDia);
       const cand = new Date(anoC, mesC, diaReal);
@@ -159,35 +147,76 @@ function proximaDataPagamento(dataBase) {
   return candidatos[0] || null;
 }
 
-// Analisa se o pagamento é viável dado o vencimento e a transportadora
-// Retorna { viavel, dataPagamentoSugerida, dataPagamentoStr, motivo }
-function analisarViabilidadePagamento(vencimentoISO, transportadora) {
-  if (!vencimentoISO) return null;
+// ✅ Nova função: valida vencimento fixo da SR Log por quinzena
+// 1ª Quinzena → vencimento deve ser dia 10 do mês seguinte
+// 2ª Quinzena → vencimento deve ser dia 30 do mês seguinte
+function validarVencimentoSRLog(vencimentoISO, ciclo) {
+  if (!vencimentoISO || !ciclo) return null;
+  const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
+  const vencDate = new Date(vy, vm - 1, vd);
+  vencDate.setHours(0,0,0,0);
+
   const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-  // Converte vencimento evitando bug de timezone do ISO (UTC vs local)
+  // Data de referência: mês seguinte ao mês atual
+  const mesRef  = hoje.getMonth(); // 0-11
+  const anoRef  = hoje.getFullYear();
+  const proxMes = mesRef === 11 ? 0 : mesRef + 1;
+  const anoProx = mesRef === 11 ? anoRef + 1 : anoRef;
+
+  let diaEsperado, descEsperado;
+  if (ciclo === "1ª Quinzena") {
+    diaEsperado  = 10;
+    descEsperado = "dia 10 do mês seguinte";
+  } else if (ciclo === "2ª Quinzena") {
+    // Dia 30 ou último dia do mês se não tiver dia 30
+    const ultimoDia = new Date(anoProx, proxMes + 1, 0).getDate();
+    diaEsperado  = Math.min(30, ultimoDia);
+    descEsperado = "dia 30 do mês seguinte";
+  } else {
+    return null; // Ciclo não é quinzena — não aplica regra
+  }
+
+  const dataEsperada = new Date(anoProx, proxMes, diaEsperado);
+  dataEsperada.setHours(0,0,0,0);
+
+  const fmtEsperado = `${String(diaEsperado).padStart(2,"0")}/${String(proxMes+1).padStart(2,"0")}/${anoProx}`;
+
+  const correto = vencDate.getTime() >= dataEsperada.getTime(); // ✅ OK se igual OU maior
+
+  return {
+    correto,
+    abaixoDoAcordado: vencDate.getTime() < dataEsperada.getTime(),
+    dataEsperada,
+    dataEsperadaStr: fmtEsperado,
+    descEsperado,
+    ciclo,
+  };
+}
+
+function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo = "") {
+  if (!vencimentoISO) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
   const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
   const venc = new Date(vy, vm - 1, vd); venc.setHours(0,0,0,0);
 
-  // 1. Data mínima por 7 dias úteis
-  const minimoUteis = adicionarDiasUteis(hoje, 7);
+  // ✅ Validação específica SR Log (vencimento fixo por quinzena)
+  const srLogCheck = transportadora === "SR Log"
+    ? validarVencimentoSRLog(vencimentoISO, ciclo)
+    : null;
 
-  // 2. Data máxima pelo prazo contratual da transportadora
+  // Validação padrão: 7 dias úteis + prazo contratual
+  const minimoUteis = adicionarDiasUteis(hoje, 7);
   const prazo = PRAZO_PAGAMENTO[transportadora] ?? PRAZO_PADRAO;
   const maximoContratual = new Date(hoje);
   maximoContratual.setDate(maximoContratual.getDate() + prazo);
   maximoContratual.setHours(0,0,0,0);
-
-  // 3. Base para próxima data de pagamento = maior entre os dois
   const baseCalculo = minimoUteis > maximoContratual ? minimoUteis : maximoContratual;
-
-  // 4. Próxima data de pagamento disponível a partir da base
   const proxPgto = proximaDataPagamento(baseCalculo);
 
-  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null, dataPagamentoStr: null };
+  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null, dataPagamentoStr: null, srLogCheck };
 
   const viavel = proxPgto <= venc;
-
   const dtStr = `${String(proxPgto.getDate()).padStart(2,"0")}/${String(proxPgto.getMonth()+1).padStart(2,"0")}/${proxPgto.getFullYear()}`;
 
   return {
@@ -196,6 +225,9 @@ function analisarViabilidadePagamento(vencimentoISO, transportadora) {
     dataPagamentoStr: dtStr,
     prazoContratual: prazo,
     baseUsada: minimoUteis > maximoContratual ? "7du" : "contratual",
+    // ✅ true só se o vencimento for menor que o prazo contratual
+    vencimentoAbaixoContrato: venc < maximoContratual,
+    srLogCheck,
   };
 }
 
@@ -250,6 +282,7 @@ const css = `
   --green:#4ADE80;--green-g:rgba(74,222,128,0.09);--green-b:rgba(74,222,128,0.28);
   --blue:#60A5FA;--blue-g:rgba(96,165,250,0.09);--blue-b:rgba(96,165,250,0.28);
   --yellow:#FDE047;--yellow-g:rgba(253,224,71,0.09);--yellow-b:rgba(253,224,71,0.28);
+  --orange:#FB923C;--orange-g:rgba(251,146,60,0.09);--orange-b:rgba(251,146,60,0.28);
 }
 body{background:var(--dark);font-family:'Barlow',sans-serif;color:var(--text);}
 .bg-grid{background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(255,255,255,0.015) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,0.015) 40px);}
@@ -633,23 +666,26 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   const prevTranspRef = useRef(nomeTranspAtual);
   useEffect(()=>{
     if(!nomeTranspAtual) return;
-    if(prevTranspRef.current === nomeTranspAtual) return; // não disparar se não mudou
+    if(prevTranspRef.current === nomeTranspAtual) return;
     prevTranspRef.current = nomeTranspAtual;
     if(ciclosDisponiveis.length===1) s("ciclo")(ciclosDisponiveis[0]);
     else s("ciclo")("");
   },[nomeTranspAtual]);
 
-  // Protocolo determinístico — mesma lógica do Apps Script
-  // Baseado em dados fixos da fatura, não em timestamp
   const gerarProtocoloLocal = (transp, numeroFatura, vencimento) => {
     const tr   = (transp        || "XX").substring(0,3).toUpperCase();
     const nf   = (numeroFatura  || "").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();
-    const venc = (vencimento    || "").replace(/-/g,"").substring(2); // AAMMDD
+    const venc = (vencimento    || "").replace(/-/g,"").substring(2);
     return `FAT-${tr}-${nf}-${venc}`;
-    // Ex: FAT-ANJ-NF2025-250620
   };
 
   const [protocolo, setProtocolo] = useState("");
+
+  // ✅ Análise de vencimento com ciclo para SR Log
+  const analiseVencimento = useMemo(() => {
+    if (!f.vencimento) return null;
+    return analisarViabilidadePagamento(f.vencimento, nomeTranspAtual, f.ciclo);
+  }, [f.vencimento, nomeTranspAtual, f.ciclo]);
 
   const valid=()=>{
     const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
@@ -666,10 +702,9 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
       const proto=gerarProtocoloLocal(nt, f.numeroFatura, f.vencimento);
       setProtocolo(proto);
-      const analiseVenc = analisarViabilidadePagamento(f.vencimento, nt);
-      const avisoVenc = analiseVenc?.viavel===false ? analiseVenc.dataPagamentoStr : null;
+      const analise = analisarViabilidadePagamento(f.vencimento, nt, f.ciclo);
+      const avisoVenc = analise?.viavel===false ? analise.dataPagamentoStr : null;
 
-      // Verifica se vencimento está abaixo do prazo contratual
       const prazoContratual = PRAZO_PAGAMENTO[nt] ?? PRAZO_PADRAO;
       const hoje = new Date(); hoje.setHours(0,0,0,0);
       const dataMinContratual = new Date(hoje);
@@ -678,7 +713,12 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
       const vencDate = new Date(vy, vm-1, vd); vencDate.setHours(0,0,0,0);
       const vencimentoAbaixoContrato = vencDate < dataMinContratual;
       const dataMinVencStr = `${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr};
+
+      // ✅ SR Log: inclui info de vencimento inválido no payload
+      const srLogVencInvalido = analise?.srLogCheck && analise.srLogCheck.abaixoDoAcordado;
+      const srLogDataEsperada = srLogVencInvalido ? (analise.srLogCheck.dataEsperadaStr || "") : "";
+
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido:srLogVencInvalido||false,srLogDataEsperada};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
@@ -687,20 +727,16 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   };
 
   if(done){
-    const analiseSuccess = analisarViabilidadePagamento(f.vencimento, f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora);
+    const analiseSuccess = analisarViabilidadePagamento(f.vencimento, f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora, f.ciclo);
     return<div className="spage"><div className="scard">
       <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
       <div className="stitle">Fatura Registrada</div>
       <p className="ssub">{transportadoraFixa?"Sua fatura foi recebida e está sendo processada.":"Arquivos direcionados ao Google Drive e metadados gravados no sistema de controle."}</p>
-
-      {/* Protocolo */}
       <div style={{background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:8,padding:"16px",marginBottom:12,textAlign:"center"}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--muted)",marginBottom:6}}>Protocolo de Registro</div>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
         <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Guarde este número para acompanhamento</div>
       </div>
-
-      {/* Info de pagamento — só aparece se prazo crítico */}
       {analiseSuccess&&!analiseSuccess.viavel&&(
         <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
@@ -714,7 +750,18 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
           </div>
         </div>
       )}
-
+      {/* ✅ Aviso SR Log vencimento inválido na tela de sucesso */}
+      {analiseSuccess?.srLogCheck && analiseSuccess.srLogCheck.abaixoDoAcordado && (
+        <div style={{background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+            <Icon name="alert" size={13} color="var(--orange)"/>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--orange)"}}>SR Log — vencimento fora do acordado</span>
+          </div>
+          <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>
+            Para {analiseSuccess.srLogCheck.ciclo}, o vencimento deve ser <strong style={{color:"var(--orange)"}}>{analiseSuccess.srLogCheck.dataEsperadaStr}</strong> ({analiseSuccess.srLogCheck.descEsperado}).
+          </div>
+        </div>
+      )}
       <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
       {!transportadoraFixa&&<Preview d={f}/>}
       <button className="btn-r" onClick={resetForm}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
@@ -759,26 +806,50 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
         </Field>
         {f.natureza==="Outro"&&<Field label="Descreva a natureza" req><Inp value={f.naturezaOutro||""} onChange={s("naturezaOutro")} placeholder="Ex: Armazenagem, Manuseio..."/></Field>}
         <Field label="Vencimento" req><Inp type="date" value={f.vencimento} onChange={s("vencimento")}/></Field>
-        {f.vencimento&&(()=>{
-          const analise = analisarViabilidadePagamento(f.vencimento, nomeTranspAtual);
-          if (!analise || analise.viavel) return null;
-          return (
-            <div style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
-                <Icon name="alert" size={13} color="var(--yellow)"/>
-                Pagamento fora do prazo!
+
+        {/* ✅ Avisos de vencimento — padrão + SR Log */}
+        {f.vencimento && analiseVencimento && (()=>{
+          const alertas = [];
+
+          // Aviso padrão: prazo de pagamento inviável
+          if (!analiseVencimento.viavel) {
+            alertas.push(
+              <div key="pgto" style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
+                  <Icon name="alert" size={13} color="var(--yellow)"/>
+                  Pagamento fora do prazo!
+                </div>
+                <div style={{color:"var(--muted)",lineHeight:1.6}}>
+                  {/* Menciona prazo contratual só se vencimento abaixo do acordado E não for SR Log (que já tem aviso próprio) */}
+                  {analiseVencimento.vencimentoAbaixoContrato && PRAZO_PAGAMENTO[nomeTranspAtual] && !analiseVencimento.srLogCheck?.abaixoDoAcordado
+                    ? <>Vencimento abaixo do prazo contratual de <strong style={{color:"var(--yellow)"}}>{analiseVencimento.prazoContratual} dias</strong>.<br/></>
+                    : null
+                  }
+                  Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analiseVencimento.dataPagamentoStr}</strong>.<br/>
+                  <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
+                </div>
               </div>
-              <div style={{color:"var(--muted)",lineHeight:1.6}}>
-                Não há data de pagamento disponível antes do vencimento.<br/>
-                {analise.baseUsada==="contratual" && PRAZO_PAGAMENTO[nomeTranspAtual]
-                  ? <>Prazo contratual de <strong style={{color:"var(--yellow)"}}>{analise.prazoContratual} dias</strong> resulta em pagamento em <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
-                  : <>Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analise.dataPagamentoStr}</strong>.</>
-                }<br/>
-                <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
+            );
+          }
+
+          // ✅ Aviso SR Log: só alerta se vencimento for MENOR que o acordado
+          if (analiseVencimento.srLogCheck && analiseVencimento.srLogCheck.abaixoDoAcordado) {
+            alertas.push(
+              <div key="srlog" style={{padding:"10px 12px",background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:6,fontSize:12,color:"var(--orange)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
+                  <Icon name="alert" size={13} color="var(--orange)"/>
+                  SR Log — vencimento incorreto
+                </div>
+                <div style={{color:"var(--muted)",lineHeight:1.6}}>
+                  Para <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.ciclo}</strong>, o vencimento contratual é <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.dataEsperadaStr}</strong> ({analiseVencimento.srLogCheck.descEsperado}).
+                </div>
               </div>
-            </div>
-          );
+            );
+          }
+
+          return alertas.length > 0 ? <>{alertas}</> : null;
         })()}
+
         <Field label="Valor Bruto" req><Inp value={f.valorBruto} onChange={v=>s("valorBruto")(fmtCur(v))} placeholder="0,00" prefix="R$"/></Field>
       </div>
       <div className="disc-box">
@@ -813,7 +884,6 @@ function Gestao({ faturas: faturasLocais }) {
   const [faturas,setFaturas]=useState(faturasLocais);
   const [carregando,setCarregando]=useState(true);
   const [erroCarregar,setErroCarregar]=useState(false);
-  // Filtros da aba Faturas
   const [filtroTransp,   setFiltroTransp]   = useState("");
   const [filtroStatus,   setFiltroStatus]   = useState("");
   const [filtroEmp,      setFiltroEmp]      = useState("");
@@ -822,8 +892,6 @@ function Gestao({ faturas: faturasLocais }) {
   const [filtroAno,      setFiltroAno]      = useState("");
   const [filtroPgto,     setFiltroPgto]     = useState("");
   const [busca,          setBusca]          = useState("");
-
-  // Filtros da aba Resumo (independentes)
   const [rTransp,   setRTransp]   = useState("");
   const [rEmp,      setREmp]      = useState("");
   const [rNatureza, setRNatureza] = useState("");
@@ -899,9 +967,8 @@ function Gestao({ faturas: faturasLocais }) {
     try{
       const [y,m,d]=novoVencimento.split("-");
       const novoVencFmt=`${d}/${m}/${y}`;
-      // Busca transportadora da fatura para recalcular com prazo correto
       const faturaAtual = faturas.find(f=>f.protocolo===protocolo);
-      const analise = analisarViabilidadePagamento(novoVencimento, faturaAtual?.transportadora||"");
+      const analise = analisarViabilidadePagamento(novoVencimento, faturaAtual?.transportadora||"", faturaAtual?.ciclo||"");
       const novoAviso = analise?.viavel===false ? analise.dataPagamentoStr : null;
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:novoVencFmt,novoAviso:novoAviso||""})});
       setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento,avisoVencimento:novoAviso||""}:f));
@@ -935,7 +1002,6 @@ function Gestao({ faturas: faturasLocais }) {
   },[faturasResumo]);
   const maxTranspResumo=porTranspResumo[0]?.[1]||1;
 
-  // Listas dinâmicas baseadas nos dados reais da planilha
   const naturezasUnicas = useMemo(()=>{
     const base = ["Frete","Difal","Transferência de Material"];
     const extras = [...new Set(todasFaturas.map(f=>f.natureza).filter(n=>n&&!base.includes(n)))].sort();
@@ -947,6 +1013,7 @@ function Gestao({ faturas: faturasLocais }) {
     const extras = [...new Set(todasFaturas.map(f=>f.transportadora).filter(t=>t&&!base.includes(t)))].sort();
     return [...base, ...extras];
   },[todasFaturas]);
+
   const recarregar=async()=>{setCarregando(true);try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);};};
 
   return<div className="page">
@@ -961,7 +1028,6 @@ function Gestao({ faturas: faturasLocais }) {
     </div>
 
     {subAba==="resumo"&&<>
-      {/* Filtros independentes do resumo */}
       <div className="filters" style={{marginBottom:16}}>
         <div style={{position:"relative"}}>
           <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span>
@@ -977,7 +1043,6 @@ function Gestao({ faturas: faturasLocais }) {
         <span className="results-count">{faturasResumo.length} resultado{faturasResumo.length!==1?"s":""}</span>
       </div>
 
-      {/* KPIs — respondem ao faturasResumo */}
       <div className="kpi-grid">
         <div className="kpi k-amber"><div className="kpi-header"><div className="kpi-label">Total Bruto</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.valor||0),0))}</div><div className="kpi-sub">{faturasResumo.length} fatura{faturasResumo.length!==1?"s":""}</div></div>
         <div className="kpi k-blue"><div className="kpi-header"><div className="kpi-label">Total Descontos</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.desconto||0),0))}</div><div className="kpi-sub">{faturasResumo.filter(f=>f.desconto>0).length} com desconto</div></div>
@@ -988,43 +1053,24 @@ function Gestao({ faturas: faturasLocais }) {
         </div>
       </div>
 
-      {/* 2 quadros: Vencidas e Urgentes — respondem ao faturasResumo */}
       {(()=>{
         const venc = faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);
         const urg  = faturasResumo.filter(f=>{if(f.status==="Paga"||!f.vencimento)return false;const dc=diasAteVencer(f.vencimento);const du=diasUteisAteVencer(f.vencimento);return dc>=0&&du<=6;});
         return <div className="g2" style={{marginBottom:14}}>
           <div style={{background:"var(--red-g)",border:"1px solid var(--red-b)",borderRadius:8,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <Icon name="alert" size={15} color="var(--red)"/>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--red)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Vencidas em aberto ({venc.length})</span>
-            </div>
-            {venc.length===0
-              ? <div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura vencida 🎉</div>
-              : <div style={{display:"flex",flexDirection:"column",gap:5}}>{venc.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)}</span></div>)}</div>
-            }
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="alert" size={15} color="var(--red)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--red)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Vencidas em aberto ({venc.length})</span></div>
+            {venc.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura vencida 🎉</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{venc.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)}</span></div>)}</div>}
           </div>
           <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <Icon name="clock" size={15} color="var(--yellow)"/>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--yellow)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Urgente — até 6 dias úteis ({urg.length})</span>
-            </div>
-            {urg.length===0
-              ? <div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura urgente</div>
-              : <div style={{display:"flex",flexDirection:"column",gap:5}}>{urg.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)} · <span style={{color:"var(--yellow)"}}>{diasUteisAteVencer(f.vencimento)}du</span></span></div>)}</div>
-            }
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="clock" size={15} color="var(--yellow)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--yellow)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Urgente — até 6 dias úteis ({urg.length})</span></div>
+            {urg.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura urgente</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{urg.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)} · <span style={{color:"var(--yellow)"}}>{diasUteisAteVencer(f.vencimento)}du</span></span></div>)}</div>}
           </div>
         </div>;
       })()}
 
-      {/* Avisos de prazo crítico */}
       {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length>0&&(
         <div style={{background:"rgba(96,165,250,0.08)",border:"1px solid var(--blue-b)",borderRadius:8,padding:"12px 15px",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <Icon name="alert" size={14} color="var(--blue)"/>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--blue)",letterSpacing:"0.04em",textTransform:"uppercase"}}>
-              {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length} fatura{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length!==1?"s":""} com prazo crítico — contato necessário
-            </span>
-          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><Icon name="alert" size={14} color="var(--blue)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--blue)",letterSpacing:"0.04em",textTransform:"uppercase"}}>{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length} fatura{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length!==1?"s":""} com prazo crítico — contato necessário</span></div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").map(f=>(
               <div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)"}}>
@@ -1035,7 +1081,6 @@ function Gestao({ faturas: faturasLocais }) {
         </div>
       )}
 
-      {/* Gráfico — responde ao faturasResumo */}
       <div className="card-plain">
         <div className="sec-head" style={{marginBottom:16}}><div className="sec-title">Valor por Transportadora</div></div>
         <div className="bar-chart">{porTranspResumo.map(([nome,val])=>(
@@ -1047,10 +1092,7 @@ function Gestao({ faturas: faturasLocais }) {
 
     {subAba==="faturas"&&<>
       <div className="filters">
-        <div style={{position:"relative"}}>
-          <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span>
-          <input className="filter-inp" style={{paddingLeft:28,minWidth:200}} placeholder="Nº fatura, transportadora, empresa, CD..." value={busca} onChange={e=>setBusca(e.target.value)}/>
-        </div>
+        <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:200}} placeholder="Nº fatura, transportadora, empresa, CD..." value={busca} onChange={e=>setBusca(e.target.value)}/></div>
         <select className="filter-inp" value={filtroMes} onChange={e=>setFiltroMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={filtroAno} onChange={e=>setFiltroAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
         <select className="filter-inp" value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadorasUnicas.map(t=><option key={t}>{t}</option>)}</select>
@@ -1066,27 +1108,17 @@ function Gestao({ faturas: faturasLocais }) {
         <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"var(--amber)"}}>{selecionadas.size} fatura{selecionadas.size!==1?"s":""} selecionada{selecionadas.size!==1?"s":""}</span>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:12,color:"var(--muted)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Data de pagamento:</span>
-          <input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)}
-            style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
+          <input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
         </div>
-        <button disabled={!dataPgtoInput||marcando}
-          onClick={()=>{if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}}
-          style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>
-          {marcando?"Salvando...":"✓ Marcar como Pagas"}
-        </button>
+        <button disabled={!dataPgtoInput||marcando} onClick={()=>{if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>{marcando?"Salvando...":"✓ Marcar como Pagas"}</button>
         <button onClick={()=>{setSelecionadas(new Set());setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:18}}>×</button>
       </div>}
 
       <div className="tbl-wrap">
         <table className="tbl">
           <thead><tr>
-            <th style={{width:32}}>
-              <input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}}
-                checked={selecionadas.size===faturasVisiveis.filter(f=>f.status!=="Paga").length&&faturasVisiveis.filter(f=>f.status!=="Paga").length>0}
-                onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>f.status!=="Paga"&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/>
-            </th>
-            <th>Nº Fatura</th><th>Transportadora</th><th>Empresa</th><th>Natureza</th>
-            <th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Ajuste</th><th>Pgto</th>
+            <th style={{width:32}}><input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={selecionadas.size===faturasVisiveis.filter(f=>f.status!=="Paga").length&&faturasVisiveis.filter(f=>f.status!=="Paga").length>0} onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>f.status!=="Paga"&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/></th>
+            <th>Nº Fatura</th><th>Transportadora</th><th>Empresa</th><th>Natureza</th><th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Ajuste</th><th>Pgto</th>
           </tr></thead>
           <tbody>
             {faturasVisiveis.length===0&&<tr><td colSpan={13} style={{textAlign:"center",color:"var(--muted)",padding:"28px"}}>Nenhuma fatura encontrada</td></tr>}
@@ -1105,37 +1137,26 @@ function Gestao({ faturas: faturasLocais }) {
                 <td style={{fontSize:12,color:"var(--muted)"}}>{f.desconto>0?fmtBRL(f.desconto):"—"}</td>
                 <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--green)"}}>{fmtBRL((f.valor||0)-(f.desconto||0))}</td>
                 <td>{statusBadge(f.vencimento,paga)}</td>
-                {/* Coluna Ajuste — só para faturas com prazo crítico */}
                 <td>
                   {!paga&&f.avisoVencimento&&f.protocolo&&(
                     ajustandoId===f.protocolo
-                      ? <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                          <input type="date" autoFocus value={novaDataVenc} onChange={e=>setNovaDataVenc(e.target.value)}
-                            style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--blue-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
-                          <button onClick={()=>{if(!novaDataVenc){alert("Informe a nova data.");return;}registrarAjuste(f.protocolo,novaDataVenc);}}
-                            style={{background:"var(--blue)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
+                      ?<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                          <input type="date" autoFocus value={novaDataVenc} onChange={e=>setNovaDataVenc(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--blue-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
+                          <button onClick={()=>{if(!novaDataVenc){alert("Informe a nova data.");return;}registrarAjuste(f.protocolo,novaDataVenc);}} style={{background:"var(--blue)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
                           <button onClick={()=>{setAjustandoId(null);setNovaDataVenc("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
                         </div>
-                      : <button onClick={()=>{setAjustandoId(f.protocolo);setNovaDataVenc("");}}
-                          style={{background:"none",border:"1px solid var(--blue-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--blue)"}}>
-                          Ajustar
-                        </button>
+                      :<button onClick={()=>{setAjustandoId(f.protocolo);setNovaDataVenc("");}} style={{background:"none",border:"1px solid var(--blue-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--blue)"}}>Ajustar</button>
                   )}
                 </td>
                 <td>
                   {!paga&&f.protocolo&&(
                     pagandoId===f.protocolo
-                      ? <div style={{display:"flex",alignItems:"center",gap:5}}>
-                          <input type="date" autoFocus value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)}
-                            style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
-                          <button onClick={()=>{if(!dataPgtoInput){alert("Informe a data.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);}}
-                            style={{background:"var(--green)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
+                      ?<div style={{display:"flex",alignItems:"center",gap:5}}>
+                          <input type="date" autoFocus value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
+                          <button onClick={()=>{if(!dataPgtoInput){alert("Informe a data.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);}} style={{background:"var(--green)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
                           <button onClick={()=>{setPagandoId(null);setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
                         </div>
-                      : <button onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}}
-                          style={{background:"none",border:"1px solid var(--green-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--green)"}}>
-                          Pagar
-                        </button>
+                      :<button onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}} style={{background:"none",border:"1px solid var(--green-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--green)"}}>Pagar</button>
                   )}
                   {paga&&<span style={{fontSize:11,color:"var(--muted)"}}>{f.dataPagamento?(f.dataPagamento.includes("T")?fmtDate(f.dataPagamento.split("T")[0]):f.dataPagamento):"—"}</span>}
                 </td>
@@ -1148,46 +1169,39 @@ function Gestao({ faturas: faturasLocais }) {
 
     {subAba==="historico"&&<>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
-        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase"}}>
-          {todasFaturas.length} upload{todasFaturas.length!==1?"s":""} registrado{todasFaturas.length!==1?"s":""}
-        </span>
+        <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase"}}>{todasFaturas.length} upload{todasFaturas.length!==1?"s":""} registrado{todasFaturas.length!==1?"s":""}</span>
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:12,color:"var(--muted)"}}>Filtrar por data de envio:</span>
-          <input type="date" value={historicoData} onChange={e=>setHistoricoData(e.target.value)}
-            style={{padding:"5px 9px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
+          <input type="date" value={historicoData} onChange={e=>setHistoricoData(e.target.value)} style={{padding:"5px 9px",background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
           {historicoData&&<button onClick={()=>setHistoricoData("")} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,padding:"4px 9px",cursor:"pointer",color:"var(--muted)",fontSize:11,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Limpar</button>}
         </div>
       </div>
-      {[...todasFaturas]
-        .filter(f=>{
-          if(!historicoData) return true;
-          if(!f.dataEnvio) return false;
-          // Normaliza dataEnvio — pode vir como Date object, ISO string ou yyyy-mm-dd
-          let de = f.dataEnvio;
-          if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
-          if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
-          if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
-          return de === historicoData;
-        })
-        .reverse()
-        .map(f=>(
-          <div className="hist-item" key={f._key||f.id}>
-            <div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div>
-            <div style={{flex:1,minWidth:0}}>
-              <div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span>
-                {f.avisoVencimento&&f.status!=="Paga"&&<span style={{marginLeft:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:800,letterSpacing:"0.08em",padding:"1px 6px",borderRadius:3,background:"rgba(96,165,250,0.12)",color:"var(--blue)",border:"1px solid var(--blue-b)"}}>PRAZO CRÍTICO</span>}
-              </div>
-              <div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos?.length||0} arquivo{(f.arquivos?.length||0)!==1?"s":""}</div>
-              {f.avisoVencimento&&f.status!=="Paga"&&<div style={{fontSize:11,color:"var(--blue)",marginTop:3}}>Próximo pagamento possível: {fmtAviso(f.avisoVencimento)}</div>}
+      {[...todasFaturas].filter(f=>{
+        if(!historicoData) return true;
+        if(!f.dataEnvio) return false;
+        let de = f.dataEnvio;
+        if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
+        if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
+        if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
+        return de === historicoData;
+      }).reverse().map(f=>(
+        <div className="hist-item" key={f._key||f.id}>
+          <div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div>
+          <div style={{flex:1,minWidth:0}}>
+            <div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span>
+              {f.avisoVencimento&&f.status!=="Paga"&&<span style={{marginLeft:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:800,letterSpacing:"0.08em",padding:"1px 6px",borderRadius:3,background:"rgba(96,165,250,0.12)",color:"var(--blue)",border:"1px solid var(--blue-b)"}}>PRAZO CRÍTICO</span>}
             </div>
-            <div className="hist-right">
-              <div className="hist-val">{fmtBRL(f.valor)}</div>
-              <div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>
-              {f.dataEnvio&&<div style={{fontSize:10,color:"var(--dim)",marginTop:2}}>Enviado: {fmtDate(f.dataEnvio)}</div>}
-              <div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div>
-            </div>
+            <div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos?.length||0} arquivo{(f.arquivos?.length||0)!==1?"s":""}</div>
+            {f.avisoVencimento&&f.status!=="Paga"&&<div style={{fontSize:11,color:"var(--blue)",marginTop:3}}>Próximo pagamento possível: {fmtAviso(f.avisoVencimento)}</div>}
           </div>
-        ))}
+          <div className="hist-right">
+            <div className="hist-val">{fmtBRL(f.valor)}</div>
+            <div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>
+            {f.dataEnvio&&<div style={{fontSize:10,color:"var(--dim)",marginTop:2}}>Enviado: {fmtDate(f.dataEnvio)}</div>}
+            <div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div>
+          </div>
+        </div>
+      ))}
       {todasFaturas.filter(f=>{
         if(!historicoData) return true;
         if(!f.dataEnvio) return false;
