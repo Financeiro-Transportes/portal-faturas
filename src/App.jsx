@@ -39,6 +39,7 @@ const USUARIOS = [
   { usuario: "ciacargas",       senha: "CiaCargas2026%&",     nome: "Cia Cargas",       role: "transportadora", transportadora: "Cia Cargas"      },
   { usuario: "dirceu",          senha: "Dirceu2026@#",         nome: "Dirceu",           role: "transportadora", transportadora: "Dirceu"          },
   { usuario: "rodoprime",       senha: "RodoPrime2026$!",      nome: "Rodo Prime",       role: "transportadora", transportadora: "Rodo Prime"      },
+  { usuario: "teste",       senha: "teste2026$!",      nome: "Transp teste",       role: "transportadora", transportadora: "Teste"      },
 ];
 
 const CICLOS_TRANSPORTADORA = {
@@ -67,6 +68,7 @@ const CICLOS_TRANSPORTADORA = {
   "Cia Cargas":       "quinzena",
   "Dirceu":           "quinzena",
   "Rodo Prime":       "quinzena",
+  "Teste":            "mensal",
 };
 
 const OPCOES_CICLO = {
@@ -110,6 +112,7 @@ const PRAZO_PAGAMENTO = {
   "Cia Cargas":       30,
   "Dirceu":           15,
   "Rodo Prime":       15,
+  "Teste":            30,
 };
 const PRAZO_PADRAO = 30;
 
