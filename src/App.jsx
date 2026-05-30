@@ -574,9 +574,9 @@ function LoginInicial({ onLogin }) {
     setErr("");
     try {
       const role = modo==="gestao" ? "gestao" : "transportadora";
+      // Apps Script não suporta CORS em JSON — envia como text/plain
       const res = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ acao: "autenticar", usuario: user, senha: pass, role }),
       });
       const data = await res.json();
