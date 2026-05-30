@@ -1,46 +1,21 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 
-const GOOGLE_CLIENT_ID = "76936325273-p5fr5r4dd5dteiovg3gf17a35t86qfia.apps.googleusercontent.com";
+// ✅ Credenciais via variáveis de ambiente — nunca hardcoded no código
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const APPS_SCRIPT_URL  = import.meta.env.VITE_APPS_SCRIPT_URL  || "";
 const GESTAO_GOOGLE_EMAILS = {
-  "marcos.luiz@gocase.com":  { nome: "Marcos", role: "gestao" },
-  "jaine.caboclo@gocase.com": { nome: "Jaine", role: "gestao" },
+  "marcos.luiz@gocase.com":       { nome: "Marcos",      role: "gestao" },
+  "jaine.caboclo@gocase.com":     { nome: "Jaine",       role: "gestao" },
   "transportegogroup@gocase.com": { nome: "Transportes", role: "gestao" },
-  "joao.conde@gocase.com": { nome: "Transportes", role: "gestao" },
-  "kelly.sousa@gocase.com": { nome: "Transportes", role: "gestao" },
-  "talita.oliveira@gocase.com": { nome: "Transportes", role: "gestao" },
-  "antonio.mendes@gocase.com": { nome: "Transportes", role: "gestao" },
+  "joao.conde@gocase.com":        { nome: "Transportes", role: "gestao" },
+  "kelly.sousa@gocase.com":       { nome: "Transportes", role: "gestao" },
+  "talita.oliveira@gocase.com":   { nome: "Transportes", role: "gestao" },
+  "antonio.mendes@gocase.com":    { nome: "Transportes", role: "gestao" },
 };
 
-const USUARIOS = [
-  { usuario: "marcos",  senha: "MarcosLuiz2026@",  nome: "Marcos", role: "gestao" },
-  { usuario: "Dados",   senha: "timededados2026",  nome: "Dados",  role: "gestao" },
-  { usuario: "anjun",           senha: "AnJun2026",          nome: "Anjun",            role: "transportadora", transportadora: "Anjun"           },
-  { usuario: "correios",        senha: "Correios2026@",       nome: "Correios",         role: "transportadora", transportadora: "Correios"        },
-  { usuario: "dialogo",         senha: "Dialogo2026#",        nome: "Diálogo",          role: "transportadora", transportadora: "Diálogo"         },
-  { usuario: "diaslog",         senha: "Diaslog2026&",        nome: "Diaslog",          role: "transportadora", transportadora: "Diaslog"         },
-  { usuario: "gollog",          senha: "Gollog2026$",         nome: "Gollog",           role: "transportadora", transportadora: "Gollog"          },
-  { usuario: "jt",              senha: "JT2026#",             nome: "J&T",              role: "transportadora", transportadora: "J&T"             },
-  { usuario: "logservicos",     senha: "LogServicos2026%",    nome: "Log Serviços",     role: "transportadora", transportadora: "Log Serviços"    },
-  { usuario: "logan",           senha: "Logan2026!",          nome: "Logan",            role: "transportadora", transportadora: "Logan"           },
-  { usuario: "unixlog",         senha: "UnixloG2026#@",       nome: "Unixlog",          role: "transportadora", transportadora: "Unixlog"         },
-  { usuario: "srlog",           senha: "SRlog2026$",          nome: "SR Log",           role: "transportadora", transportadora: "SR Log"          },
-  { usuario: "spfly",           senha: "Spfly2026$#",         nome: "SP Fly",           role: "transportadora", transportadora: "SP Fly"          },
-  { usuario: "kr",              senha: "KR2026&*",            nome: "KR",               role: "transportadora", transportadora: "KR"              },
-  { usuario: "jamef",           senha: "Jamef2026@!",         nome: "Jamef",            role: "transportadora", transportadora: "Jamef"           },
-  { usuario: "favorita",        senha: "Favorita2026%$",      nome: "Favorita",         role: "transportadora", transportadora: "Favorita"        },
-  { usuario: "ativa",           senha: "AtiVa2026$#",         nome: "Ativa",            role: "transportadora", transportadora: "Ativa"           },
-  { usuario: "brunotransportes",senha: "Bruno.transp2026@",   nome: "Bruno Transportes",role: "transportadora", transportadora: "Bruno Transportes"},
-  { usuario: "arc",             senha: "Arc2026@!",           nome: "ARC",              role: "transportadora", transportadora: "ARC"             },
-  { usuario: "paed",            senha: "Paed2026#$",          nome: "PAED",             role: "transportadora", transportadora: "PAED"            },
-  { usuario: "matheus",         senha: "Matheus2026&*",       nome: "Matheus",          role: "transportadora", transportadora: "Matheus"         },
-  { usuario: "binho",           senha: "Binho2026@#",         nome: "Binho",            role: "transportadora", transportadora: "Binho"           },
-  { usuario: "family",          senha: "Family2026$!",        nome: "Family",           role: "transportadora", transportadora: "Family"          },
-  { usuario: "fsl",             senha: "Fsl2026#@",           nome: "FSL",              role: "transportadora", transportadora: "FSL"             },
-  { usuario: "ciacargas",       senha: "CiaCargas2026%&",     nome: "Cia Cargas",       role: "transportadora", transportadora: "Cia Cargas"      },
-  { usuario: "dirceu",          senha: "Dirceu2026@#",         nome: "Dirceu",           role: "transportadora", transportadora: "Dirceu"          },
-  { usuario: "rodoprime",       senha: "RodoPrime2026$!",      nome: "Rodo Prime",       role: "transportadora", transportadora: "Rodo Prime"      },
-  { usuario: "teste",       senha: "teste2026$!",      nome: "Transp teste",       role: "transportadora", transportadora: "Teste"      },
-];
+// ✅ Usuários e senhas removidos do frontend — autenticação via Apps Script
+// Para cadastrar usuários: Extensions > Apps Script > Project Settings >
+// Script Properties → USUARIOS (JSON array com usuario/senha/nome/role)
 
 const CICLOS_TRANSPORTADORA = {
   "Anjun":            "mensal",
@@ -83,8 +58,6 @@ function getCiclosTransp(nomeTransp) {
   const tipo = CICLOS_TRANSPORTADORA[nomeTransp] || "livre";
   return OPCOES_CICLO[tipo] || ["Mensal", "1ª Quinzena", "2ª Quinzena"];
 }
-
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyPsRsnh1ZARyu7gVq3By7Jj_qvpwaBSrDQCDoA3j7P9w9v1Qcok5CSZHXqR6g8bP-8Bg/exec";
 
 const PRAZO_PAGAMENTO = {
   "Anjun":            30,
@@ -234,7 +207,7 @@ function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo = "")
   };
 }
 
-const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Outro"];
+const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
 const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub"];
 const CDs    = ["CD MG","CD SP","CD ES","CD RJ"];
 const meses  = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -594,11 +567,29 @@ function LoginInicial({ onLogin }) {
     }
   },[modo,clientIdOk]);
   useEffect(()=>{if(modo==="gestao"&&googleBtnRef.current&&window.google?.accounts?.id)renderBtn();});
-  const tentarSenha=()=>{
-    const filtro=modo==="gestao"?"gestao":"transportadora";
-    const u=USUARIOS.find(u=>u.usuario===user&&u.senha===pass&&u.role===filtro);
-    if(u){setErr("");onLogin({...u,loginMethod:"password"});}
-    else setErr(modo==="gestao"?"Credenciais de gestão inválidas.":"Usuário ou senha incorretos.");
+  const [loadingLogin, setLoadingLogin] = useState(false);
+  const tentarSenha=async()=>{
+    if(loadingLogin) return;
+    setLoadingLogin(true);
+    setErr("");
+    try {
+      const role = modo==="gestao" ? "gestao" : "transportadora";
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "autenticar", usuario: user, senha: pass, role }),
+      });
+      const data = await res.json();
+      if(data.sucesso) {
+        onLogin({ ...data, loginMethod: "password" });
+      } else {
+        setErr(data.erro || (modo==="gestao" ? "Credenciais de gestão inválidas." : "Usuário ou senha incorretos."));
+      }
+    } catch(e) {
+      setErr("Erro de conexão. Tente novamente.");
+    } finally {
+      setLoadingLogin(false);
+    }
   };
 
   return <div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -627,7 +618,7 @@ function LoginInicial({ onLogin }) {
             <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="user" size={14}/></span><input className="inp" style={{paddingLeft:30}} value={user} onChange={e=>setUser(e.target.value)} placeholder="usuário" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div>
             <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="lock" size={14}/></span><input className="inp" type="password" style={{paddingLeft:30}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div>
           </div>
-          <button className="btn-login" onClick={tentarSenha}>Entrar <Icon name="arrowRight" size={14} color="var(--dark)"/></button>
+          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin && <Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
         </>}
         {modo==="transp"&&<>
           <div style={{fontSize:12,color:"var(--muted)",textAlign:"center",marginBottom:18}}>Acesse com suas credenciais de transportadora</div>
@@ -635,7 +626,7 @@ function LoginInicial({ onLogin }) {
             <Field label="Usuário"><div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="user" size={14}/></span><input className="inp" style={{paddingLeft:30}} value={user} onChange={e=>setUser(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div></Field>
             <Field label="Senha"><div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="lock" size={14}/></span><input className="inp" type="password" style={{paddingLeft:30}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div></Field>
           </div>
-          <button className="btn-login" onClick={tentarSenha}>Entrar <Icon name="arrowRight" size={14} color="var(--dark)"/></button>
+          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin && <Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
         </>}
       </div>
       <div style={{textAlign:"center",marginTop:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--dim)"}}>Portal Interno · Google Drive Corporativo</div>
