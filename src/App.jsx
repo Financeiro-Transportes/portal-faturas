@@ -1,6 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, Component } from "react";
 
-// ✅ Credenciais via variáveis de ambiente — nunca hardcoded no código
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const APPS_SCRIPT_URL  = import.meta.env.VITE_APPS_SCRIPT_URL  || "";
 const GESTAO_GOOGLE_EMAILS = {
@@ -13,238 +12,181 @@ const GESTAO_GOOGLE_EMAILS = {
   "antonio.mendes@gocase.com":    { nome: "Transportes", role: "gestao" },
 };
 
-// ✅ Usuários e senhas removidos do frontend — autenticação via Apps Script
-// Para cadastrar usuários: Extensions > Apps Script > Project Settings >
-// Script Properties → USUARIOS (JSON array com usuario/senha/nome/role)
-
-const CICLOS_TRANSPORTADORA = {
-  "Anjun":            "mensal",
-  "Correios":         "mensal",
-  "Diálogo":          "mensal",
-  "Diaslog":          "mensal",
-  "Gollog":           "quinzena",
-  "J&T":              "mensal",
-  "Log Serviços":     "mensal",
-  "Logan":            "quinzena",
-  "Unixlog":          "mensal",
-  "SR Log":           "quinzena",
-  "SP Fly":           "mensal",
-  "KR":               "mensal",
-  "Jamef":            "mensal",
-  "Favorita":         "demanda",   // ✅ demanda (prazo 30 dias)
-  "Ativa":            "mensal",
-  "Bruno Transportes":"mensal",
-  "ARC":              "demanda",
-  "PAED":             "demanda",
-  "Matheus":          "demanda",
-  "Binho":            "demanda",
-  "Family":           "mensal",
-  "FSL":              "demanda",
-  "Cia Cargas":       "quinzena",
-  "Dirceu":           "quinzena",
-  "Rodo Prime":       "quinzena",
-  "Teste":            "mensal",
-};
-
-const OPCOES_CICLO = {
-  mensal:   ["Mensal"],
-  quinzena: ["1ª Quinzena", "2ª Quinzena"],
-  // ✅ Demanda agora inclui Semanal
-  demanda:  ["Mensal", "1ª Quinzena", "2ª Quinzena", "Semanal"],
-  livre:    ["Mensal", "1ª Quinzena", "2ª Quinzena", "Semanal"],
-};
-
-function getCiclosTransp(nomeTransp) {
-  const tipo = CICLOS_TRANSPORTADORA[nomeTransp] || "livre";
-  return OPCOES_CICLO[tipo] || ["Mensal", "1ª Quinzena", "2ª Quinzena"];
+// ✅ CORREÇÃO 1: Error Boundary — tela de erro em vez de tela branca
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("Portal error:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{minHeight:"100vh",background:"#0D1117",display:"flex",alignItems:"center",justifyContent:"center",padding:24,fontFamily:"'Barlow',sans-serif"}}>
+          <div style={{background:"#161C26",border:"1px solid rgba(248,113,113,0.28)",borderTop:"3px solid #F87171",borderRadius:12,padding:"40px 36px",maxWidth:460,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:40,marginBottom:16}}>⚠️</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:19,fontWeight:800,color:"#E2E8F0",marginBottom:8}}>Algo deu errado</div>
+            <p style={{fontSize:13,color:"#64748B",lineHeight:1.7,marginBottom:20}}>Ocorreu um erro inesperado. Seus dados não foram perdidos.<br/>Tente recarregar a página.</p>
+            <button onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
+              style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:800,letterSpacing:"0.1em",textTransform:"uppercase",padding:"10px 28px",background:"#F5A623",color:"#0D1117",border:"none",borderRadius:6,cursor:"pointer"}}>
+              Recarregar Portal
+            </button>
+            {this.state.error && (
+              <details style={{marginTop:16,textAlign:"left"}}>
+                <summary style={{fontSize:11,color:"#64748B",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Detalhes técnicos</summary>
+                <pre style={{fontSize:10,color:"#64748B",marginTop:8,overflow:"auto",maxHeight:120,background:"rgba(0,0,0,0.3)",padding:8,borderRadius:4}}>{this.state.error?.toString()}</pre>
+              </details>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
+// ✅ CORREÇÃO 2: localStorage seguro — nunca quebra o app
+function lerUsuarioStorage() {
+  try {
+    const s = localStorage.getItem("portal_usuario");
+    if (!s) return null;
+    const u = JSON.parse(s);
+    if (!u || typeof u !== "object" || !u.role) return null;
+    return { ...u, picture: null };
+  } catch {
+    try { localStorage.removeItem("portal_usuario"); } catch {}
+    return null;
+  }
+}
+function salvarUsuarioStorage(u) {
+  try { const { picture, ...sem } = u; localStorage.setItem("portal_usuario", JSON.stringify(sem)); } catch {}
+}
+function limparUsuarioStorage() {
+  try { localStorage.removeItem("portal_usuario"); } catch {}
+}
+
+const CICLOS_TRANSPORTADORA = {
+  "Anjun":"mensal","Correios":"mensal","Diálogo":"mensal","Diaslog":"mensal",
+  "Gollog":"quinzena","J&T":"mensal","Log Serviços":"mensal","Logan":"quinzena",
+  "Unixlog":"mensal","SR Log":"quinzena","SP Fly":"mensal","KR":"mensal",
+  "Jamef":"mensal","Favorita":"demanda","Ativa":"mensal","Bruno Transportes":"mensal",
+  "ARC":"demanda","PAED":"demanda","Matheus":"demanda","Binho":"demanda",
+  "Family":"mensal","FSL":"demanda","Cia Cargas":"quinzena","Dirceu":"quinzena",
+  "Rodo Prime":"quinzena","Teste":"mensal",
+};
+const OPCOES_CICLO = {
+  mensal:["Mensal"], quinzena:["1ª Quinzena","2ª Quinzena"],
+  demanda:["Mensal","1ª Quinzena","2ª Quinzena","Semanal"],
+  livre:["Mensal","1ª Quinzena","2ª Quinzena","Semanal"],
+};
+function getCiclosTransp(n){const t=CICLOS_TRANSPORTADORA[n]||"livre";return OPCOES_CICLO[t]||["Mensal","1ª Quinzena","2ª Quinzena"];}
+
 const PRAZO_PAGAMENTO = {
-  "Anjun":            30,
-  "Correios":         21,
-  "Diálogo":          30,
-  "Diaslog":          30,
-  "Gollog":           30,
-  "J&T":              30,
-  "Log Serviços":     30,
-  "Logan":            30,
-  "Unixlog":          30,
-  "SR Log":           15,   // usado só para validação de dias úteis
-  "SP Fly":           30,
-  "KR":               21,
-  "Jamef":            30,
-  "Favorita":         30,   // ✅ 30 dias
-  "Ativa":            30,
-  "Bruno Transportes":15,
-  "ARC":              30,
-  "PAED":             30,
-  "Matheus":          30,
-  "Binho":            15,
-  "Family":           20,
-  "FSL":              27,
-  "Cia Cargas":       30,
-  "Dirceu":           15,
-  "Rodo Prime":       15,
-  "Teste":            30,
+  "Anjun":30,"Correios":21,"Diálogo":30,"Diaslog":30,"Gollog":30,"J&T":30,
+  "Log Serviços":30,"Logan":30,"Unixlog":30,"SR Log":15,"SP Fly":30,"KR":21,
+  "Jamef":30,"Favorita":30,"Ativa":30,"Bruno Transportes":15,"ARC":30,"PAED":30,
+  "Matheus":30,"Binho":15,"Family":20,"FSL":27,"Cia Cargas":30,"Dirceu":15,
+  "Rodo Prime":15,"Teste":30,
 };
 const PRAZO_PADRAO = 30;
-
 const DATAS_PGTO = [10, 20, 30];
 
 function adicionarDiasUteis(data, dias) {
-  const d = new Date(data);
-  let adicionados = 0;
-  while (adicionados < dias) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) adicionados++;
-  }
+  const d = new Date(data); let add = 0;
+  while (add < dias) { d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) add++; }
   return d;
 }
-
-function proximaDataPagamento(dataBase) {
-  const base = new Date(dataBase);
-  base.setHours(0,0,0,0);
-  const ano = base.getFullYear();
-  const mes = base.getMonth();
-  const candidatos = [];
-  for (let m = 0; m <= 2; m++) {
-    const anoC = mes + m > 11 ? ano + 1 : ano;
-    const mesC = (mes + m) % 12;
-    for (const dia of DATAS_PGTO) {
-      const ultimoDia = new Date(anoC, mesC + 1, 0).getDate();
-      const diaReal = Math.min(dia, ultimoDia);
-      const cand = new Date(anoC, mesC, diaReal);
-      cand.setHours(0,0,0,0);
-      if (cand >= base) candidatos.push(cand);
+function proximaDataPagamento(base) {
+  const b = new Date(base); b.setHours(0,0,0,0);
+  const ano=b.getFullYear(), mes=b.getMonth();
+  const cands=[];
+  for(let m=0;m<=2;m++){
+    const aC=mes+m>11?ano+1:ano, mC=(mes+m)%12;
+    for(const dia of DATAS_PGTO){
+      const ult=new Date(aC,mC+1,0).getDate();
+      const c=new Date(aC,mC,Math.min(dia,ult)); c.setHours(0,0,0,0);
+      if(c>=b) cands.push(c);
     }
   }
-  candidatos.sort((a,b) => a-b);
-  return candidatos[0] || null;
+  cands.sort((a,b2)=>a-b2); return cands[0]||null;
 }
-
-// ✅ Nova função: valida vencimento fixo da SR Log por quinzena
-// 1ª Quinzena → vencimento deve ser dia 10 do mês seguinte
-// 2ª Quinzena → vencimento deve ser dia 30 do mês seguinte
 function validarVencimentoSRLog(vencimentoISO, ciclo) {
-  if (!vencimentoISO || !ciclo) return null;
-  const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
-  const vencDate = new Date(vy, vm - 1, vd);
-  vencDate.setHours(0,0,0,0);
-
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-
-  // Data de referência: mês seguinte ao mês atual
-  const mesRef  = hoje.getMonth(); // 0-11
-  const anoRef  = hoje.getFullYear();
-  const proxMes = mesRef === 11 ? 0 : mesRef + 1;
-  const anoProx = mesRef === 11 ? anoRef + 1 : anoRef;
-
-  let diaEsperado, descEsperado;
-  if (ciclo === "1ª Quinzena") {
-    diaEsperado  = 10;
-    descEsperado = "dia 10 do mês seguinte";
-  } else if (ciclo === "2ª Quinzena") {
-    // Dia 30 ou último dia do mês se não tiver dia 30
-    const ultimoDia = new Date(anoProx, proxMes + 1, 0).getDate();
-    diaEsperado  = Math.min(30, ultimoDia);
-    descEsperado = "dia 30 do mês seguinte";
-  } else {
-    return null; // Ciclo não é quinzena — não aplica regra
-  }
-
-  const dataEsperada = new Date(anoProx, proxMes, diaEsperado);
-  dataEsperada.setHours(0,0,0,0);
-
-  const fmtEsperado = `${String(diaEsperado).padStart(2,"0")}/${String(proxMes+1).padStart(2,"0")}/${anoProx}`;
-
-  const correto = vencDate.getTime() >= dataEsperada.getTime(); // ✅ OK se igual OU maior
-
-  return {
-    correto,
-    abaixoDoAcordado: vencDate.getTime() < dataEsperada.getTime(),
-    dataEsperada,
-    dataEsperadaStr: fmtEsperado,
-    descEsperado,
-    ciclo,
-  };
+  if(!vencimentoISO||!ciclo) return null;
+  try {
+    const [vy,vm,vd]=vencimentoISO.split("-").map(Number);
+    if(!vy||!vm||!vd) return null;
+    const vencDate=new Date(vy,vm-1,vd); vencDate.setHours(0,0,0,0);
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const mesRef=hoje.getMonth(),anoRef=hoje.getFullYear();
+    const proxMes=mesRef===11?0:mesRef+1, anoProx=mesRef===11?anoRef+1:anoRef;
+    let diaEsp,descEsp;
+    if(ciclo==="1ª Quinzena"){diaEsp=10;descEsp="dia 10 do mês seguinte";}
+    else if(ciclo==="2ª Quinzena"){const ult=new Date(anoProx,proxMes+1,0).getDate();diaEsp=Math.min(30,ult);descEsp="dia 30 do mês seguinte";}
+    else return null;
+    const dataEsp=new Date(anoProx,proxMes,diaEsp); dataEsp.setHours(0,0,0,0);
+    const fmtEsp=`${String(diaEsp).padStart(2,"0")}/${String(proxMes+1).padStart(2,"0")}/${anoProx}`;
+    return {correto:vencDate>=dataEsp,abaixoDoAcordado:vencDate<dataEsp,dataEsperada:dataEsp,dataEsperadaStr:fmtEsp,descEsperado:descEsp,ciclo};
+  } catch { return null; }
 }
 
-function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo = "") {
-  if (!vencimentoISO) return null;
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const [vy, vm, vd] = vencimentoISO.split("-").map(Number);
-  const venc = new Date(vy, vm - 1, vd); venc.setHours(0,0,0,0);
-
-  // ✅ Validação específica SR Log (vencimento fixo por quinzena)
-  const srLogCheck = transportadora === "SR Log"
-    ? validarVencimentoSRLog(vencimentoISO, ciclo)
-    : null;
-
-  // Validação padrão: 7 dias úteis + prazo contratual
-  const minimoUteis = adicionarDiasUteis(hoje, 7);
-  const prazo = PRAZO_PAGAMENTO[transportadora] ?? PRAZO_PADRAO;
-  const maximoContratual = new Date(hoje);
-  maximoContratual.setDate(maximoContratual.getDate() + prazo);
-  maximoContratual.setHours(0,0,0,0);
-  const baseCalculo = minimoUteis > maximoContratual ? minimoUteis : maximoContratual;
-  const proxPgto = proximaDataPagamento(baseCalculo);
-
-  if (!proxPgto) return { viavel: false, dataPagamentoSugerida: null, dataPagamentoStr: null, srLogCheck };
-
-  const viavel = proxPgto <= venc;
-  const dtStr = `${String(proxPgto.getDate()).padStart(2,"0")}/${String(proxPgto.getMonth()+1).padStart(2,"0")}/${proxPgto.getFullYear()}`;
-
-  return {
-    viavel,
-    dataPagamentoSugerida: proxPgto,
-    dataPagamentoStr: dtStr,
-    prazoContratual: prazo,
-    baseUsada: minimoUteis > maximoContratual ? "7du" : "contratual",
-    // ✅ true só se o vencimento for menor que o prazo contratual
-    vencimentoAbaixoContrato: venc < maximoContratual,
-    srLogCheck,
-  };
+// ✅ CORREÇÃO 3: analisarViabilidadePagamento com try/catch
+function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo="") {
+  if(!vencimentoISO) return null;
+  try {
+    const hoje=new Date(); hoje.setHours(0,0,0,0);
+    const partes=vencimentoISO.split("-").map(Number);
+    if(partes.length!==3||partes.some(isNaN)) return null;
+    const [vy,vm,vd]=partes;
+    const venc=new Date(vy,vm-1,vd); venc.setHours(0,0,0,0);
+    if(isNaN(venc.getTime())) return null;
+    const srLogCheck=transportadora==="SR Log"?validarVencimentoSRLog(vencimentoISO,ciclo):null;
+    const minUteis=adicionarDiasUteis(hoje,7);
+    const prazo=PRAZO_PAGAMENTO[transportadora]??PRAZO_PADRAO;
+    const maxContr=new Date(hoje); maxContr.setDate(maxContr.getDate()+prazo); maxContr.setHours(0,0,0,0);
+    const baseCalc=minUteis>maxContr?minUteis:maxContr;
+    const proxPgto=proximaDataPagamento(baseCalc);
+    if(!proxPgto) return {viavel:false,dataPagamentoSugerida:null,dataPagamentoStr:null,srLogCheck};
+    const viavel=proxPgto<=venc;
+    const dtStr=`${String(proxPgto.getDate()).padStart(2,"0")}/${String(proxPgto.getMonth()+1).padStart(2,"0")}/${proxPgto.getFullYear()}`;
+    return {viavel,dataPagamentoSugerida:proxPgto,dataPagamentoStr:dtStr,prazoContratual:prazo,baseUsada:minUteis>maxContr?"7du":"contratual",vencimentoAbaixoContrato:venc<maxContr,srLogCheck};
+  } catch { return null; }
 }
 
-const transportadoras = ["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
-const empresasGrupo   = ["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub"];
-const CDs    = ["CD MG","CD SP","CD ES","CD RJ"];
-const meses  = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const anos   = ["2023","2024","2025","2026","2027","2028","2029","2030"];
-const motivosDesc = ["Extravio/Avaria","Penalidade por SLA","Devolução Indevida de Pedidos","Desconto por Volume","Ajuste Contratual","Contestação de Fatura","Outro"];
-
-const MOCK_FATURAS = [];
+const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
+const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub"];
+const CDs=["CD MG","CD SP","CD ES","CD RJ"];
+const meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const anos=["2023","2024","2025","2026","2027","2028","2029","2030"];
+const motivosDesc=["Extravio/Avaria","Penalidade por SLA","Devolução Indevida de Pedidos","Desconto por Volume","Ajuste Contratual","Contestação de Fatura","Outro"];
+const MOCK_FATURAS=[];
 
 const Icon = ({ name, size=16, color="currentColor" }) => {
   const icons = {
-    truck:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
-    upload:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-    chart:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
-    building:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6M3 15h6M15 9h6M15 15h6"/></svg>,
-    pin:        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-    shuffle:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>,
-    calendar:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-    dollar:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
-    paperclip:  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
-    file:       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>,
-    fileText:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
-    table:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
-    clock:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-    alert:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-    user:       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    lock:       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
-    check:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-    x:          <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-    folder:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
-    logout:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
-    search:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-    arrowRight: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
-    trash:      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
-    mail:       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
-    google:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,
+    truck:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+    upload:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+    chart:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+    building:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6M3 15h6M15 9h6M15 15h6"/></svg>,
+    pin:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+    shuffle:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>,
+    calendar:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    dollar:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+    paperclip:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>,
+    file:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>,
+    fileText:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    table:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
+    clock:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+    alert:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+    user:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+    lock:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
+    check:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+    x:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    folder:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>,
+    logout:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+    search:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+    arrowRight:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
+    trash:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>,
+    mail:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+    google:<svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,
   };
-  return icons[name] || null;
+  return icons[name]||null;
 };
 
 const css = `
@@ -270,7 +212,6 @@ body{background:var(--dark);font-family:'Barlow',sans-serif;color:var(--text);}
 .topbar-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:0.03em;color:var(--text);line-height:1;}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
 .topbar-user{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.06em;color:var(--muted);display:flex;align-items:center;gap:7px;}
-.topbar-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;border:1.5px solid var(--amber-b);}
 .topbar-avatar-ph{width:26px;height:26px;border-radius:50%;background:var(--s3);border:1.5px solid var(--bd);display:flex;align-items:center;justify-content:center;}
 .btn-logout{display:flex;align-items:center;gap:5px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:5px 11px;border-radius:4px;border:1px solid var(--bd);background:var(--s2);color:var(--muted);cursor:pointer;transition:all .15s;}
 .btn-logout:hover{border-color:var(--red-b);color:var(--red);}
@@ -278,10 +219,8 @@ body{background:var(--dark);font-family:'Barlow',sans-serif;color:var(--text);}
 .tabs-bar{background:var(--s1);border-bottom:1px solid var(--bd);}
 .tabs-inner{max-width:1100px;margin:0 auto;padding:0 24px;display:flex;}
 .tab{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:13px 20px;cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;display:flex;align-items:center;gap:7px;}
-.tab:hover{color:var(--text);}
-.tab.on{color:var(--amber);border-bottom-color:var(--amber);}
+.tab:hover{color:var(--text);}.tab.on{color:var(--amber);border-bottom-color:var(--amber);}
 .tab-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:pulse 1.8s infinite;flex-shrink:0;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 .page{max-width:1100px;margin:0 auto;padding:26px 24px 60px;}
 .page-sm{max-width:740px;margin:0 auto;padding:26px 24px 60px;}
 .card{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:20px 22px;margin-bottom:12px;position:relative;overflow:hidden;}
@@ -302,12 +241,10 @@ body{background:var(--dark);font-family:'Barlow',sans-serif;color:var(--text);}
 .sel-w{position:relative;}
 .sel-w::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--amber);font-size:11px;pointer-events:none;}
 select.sel,input.inp{width:100%;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:14px;color:var(--text);background:var(--s2);border:1px solid var(--bd);border-radius:6px;outline:none;appearance:none;transition:border-color .15s,box-shadow .15s;}
-select.sel{padding-right:28px;cursor:pointer;}
-select.sel option{background:var(--s2);}
+select.sel{padding-right:28px;cursor:pointer;}select.sel option{background:var(--s2);}
 select.sel:focus,input.inp:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,166,35,0.09);}
 input.inp::placeholder{color:var(--dim);}
-.pfx-w{position:relative;}
-.pfx{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--amber);pointer-events:none;}
+.pfx-w{position:relative;}.pfx{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--amber);pointer-events:none;}
 .pfx-w input{padding-left:24px;}
 .tgl-g{display:flex;gap:6px;flex-wrap:wrap;}
 .tgl{padding:7px 15px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border-radius:5px;cursor:pointer;border:1.5px solid var(--bd);background:var(--s2);color:var(--muted);transition:all .15s;}
@@ -352,7 +289,6 @@ input.inp::placeholder{color:var(--dim);}
 .ssub{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:18px;}
 .btn-r{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;padding:10px 26px;background:var(--amber);color:var(--dark);border:none;border-radius:6px;cursor:pointer;margin-top:14px;transition:background .15s;display:inline-flex;align-items:center;gap:7px;}
 .btn-r:hover{background:#FBBF24;}
-.login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
 .login-card{background:var(--s1);border:1px solid var(--bd);border-top:3px solid var(--amber);border-radius:12px;padding:28px 28px 24px;max-width:380px;width:100%;}
 .login-mode-sw{display:flex;gap:0;margin-bottom:20px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:3px;}
 .login-mode-btn{flex:1;padding:8px 6px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;border:none;background:none;color:var(--muted);border-radius:6px;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px;}
@@ -369,30 +305,20 @@ input.inp::placeholder{color:var(--dim);}
 @media(max-width:700px){.kpi-grid{grid-template-columns:1fr 1fr;}}
 .kpi{background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:16px 18px;position:relative;overflow:hidden;}
 .kpi::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;}
-.kpi.k-amber::before{background:var(--amber);}
-.kpi.k-red::before{background:var(--red);}
-.kpi.k-green::before{background:var(--green);}
-.kpi.k-blue::before{background:var(--blue);}
+.kpi.k-amber::before{background:var(--amber);}.kpi.k-red::before{background:var(--red);}
+.kpi.k-green::before{background:var(--green);}.kpi.k-blue::before{background:var(--blue);}
 .kpi-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .kpi-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);}
 .kpi-icon{opacity:0.2;}
 .kpi-value{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:0.01em;line-height:1;}
-.kpi.k-amber .kpi-value{color:var(--amber);}
-.kpi.k-red .kpi-value{color:var(--red);}
-.kpi.k-green .kpi-value{color:var(--green);}
-.kpi.k-blue .kpi-value{color:var(--blue);}
+.kpi.k-amber .kpi-value{color:var(--amber);}.kpi.k-red .kpi-value{color:var(--red);}
+.kpi.k-green .kpi-value{color:var(--green);}.kpi.k-blue .kpi-value{color:var(--blue);}
 .kpi-sub{font-size:11px;color:var(--muted);margin-top:3px;}
-.alert-strip{background:var(--red-g);border:1px solid var(--red-b);border-radius:8px;padding:12px 15px;margin-bottom:12px;display:flex;align-items:flex-start;gap:10px;}
-.alert-icon{flex-shrink:0;margin-top:1px;color:var(--red);}
-.alert-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.04em;color:var(--red);margin-bottom:5px;}
-.alert-title.yellow{color:var(--yellow);}
-.alert-list{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px;}
 .tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--bd);}
 table.tbl{width:100%;border-collapse:collapse;font-size:13px;}
 .tbl th{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:10px 14px;background:var(--s2);text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap;}
 .tbl td{padding:11px 14px;border-bottom:1px solid var(--bd);color:var(--text);vertical-align:middle;}
-.tbl tr:last-child td{border-bottom:none;}
-.tbl tr:hover td{background:rgba(255,255,255,0.02);}
+.tbl tr:last-child td{border-bottom:none;}.tbl tr:hover td{background:rgba(255,255,255,0.02);}
 .badge{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:2px 7px;border-radius:3px;}
 .badge-red{background:var(--red-g);color:var(--red);border:1px solid var(--red-b);}
 .badge-yellow{background:var(--yellow-g);color:var(--yellow);border:1px solid var(--yellow-b);}
@@ -401,8 +327,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px;}
 .badge-amber{background:var(--amber-glow);color:var(--amber);border:1px solid var(--amber-b);}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
 .filter-inp{padding:7px 10px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--text);background:var(--s2);border:1px solid var(--bd);border-radius:6px;outline:none;transition:border-color .15s;}
-.filter-inp:focus{border-color:var(--amber);}
-.filter-inp::placeholder{color:var(--dim);}
+.filter-inp:focus{border-color:var(--amber);}.filter-inp::placeholder{color:var(--dim);}
 select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 .filter-clear{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:7px 12px;background:none;border:1px solid var(--bd);border-radius:6px;color:var(--muted);cursor:pointer;transition:all .15s;}
 .filter-clear:hover{border-color:var(--amber-b);color:var(--amber);}
@@ -423,8 +348,7 @@ select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 .bar-amt{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--text);width:88px;text-align:right;flex-shrink:0;}
 .sub-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:1px solid var(--bd);}
 .sub-tab{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;padding:9px 16px;cursor:pointer;border:none;background:none;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;display:flex;align-items:center;gap:6px;}
-.sub-tab:hover{color:var(--text);}
-.sub-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
+.sub-tab:hover{color:var(--text);}.sub-tab.on{color:var(--amber);border-bottom-color:var(--amber);}
 .footer{text-align:center;margin-top:14px;font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);}
 .setup-notice{background:var(--yellow-g);border:1px solid var(--yellow-b);border-radius:6px;padding:10px 13px;font-size:11px;color:var(--yellow);line-height:1.7;margin-bottom:14px;}
 .setup-notice code{font-family:monospace;font-size:10px;background:rgba(253,224,71,0.15);padding:1px 4px;border-radius:2px;}
@@ -435,164 +359,57 @@ select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 .page,.page-sm{animation:fadeIn .25s ease both;}
 `;
 
-const fmtBRL  = v => `R$ ${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-const fmtDate = s => { if(!s)return"—"; const [y,m,d]=s.split("-"); return `${d}/${m}/${y}`; };
-const fmtAviso = v => {
-  if (!v) return "";
-  if (v.includes("T")) return fmtDate(v.split("T")[0]);
-  if (v.includes("-") && v.length === 10) return fmtDate(v);
-  return v;
-};
-const diasAteVencer = s => {
-  if(!s) return 9999;
-  const d = Math.ceil((new Date(s)-new Date())/86400000);
-  return isNaN(d) ? 9999 : d;
-};
-const diasUteisAteVencer = s => {
-  if(!s) return 9999;
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  const venc = new Date(s); venc.setHours(0,0,0,0);
-  if(venc < hoje) return -1;
-  let uteis = 0;
-  const cur = new Date(hoje);
-  while(cur <= venc) {
-    const dow = cur.getDay();
-    if(dow !== 0 && dow !== 6) uteis++;
-    cur.setDate(cur.getDate()+1);
-  }
-  return uteis - 1;
-};
-const statusBadge = (venc, paga) => {
-  if(paga) return <span className="badge badge-green">Paga</span>;
-  if(!venc) return <span className="badge badge-blue">—</span>;
-  const dc = diasAteVencer(venc);
-  const du = diasUteisAteVencer(venc);
-  if(dc < 0)  return <span className="badge badge-red">Vencido</span>;
-  if(du <= 6) return <span className="badge badge-yellow">Urgente · {du}du</span>;
-  return            <span className="badge badge-green">A vencer</span>;
-};
+const fmtBRL=v=>{try{return `R$ ${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}catch{return "R$ 0,00";}};
+const fmtDate=s=>{if(!s)return"—";try{const[y,m,d]=s.split("-");return `${d}/${m}/${y}`;}catch{return s;}};
+const fmtAviso=v=>{if(!v)return"";try{if(v.includes("T"))return fmtDate(v.split("T")[0]);if(v.includes("-")&&v.length===10)return fmtDate(v);return v;}catch{return v;}};
+const diasAteVencer=s=>{if(!s)return 9999;try{const d=Math.ceil((new Date(s)-new Date())/86400000);return isNaN(d)?9999:d;}catch{return 9999;}};
+const diasUteisAteVencer=s=>{if(!s)return 9999;try{const hoje=new Date();hoje.setHours(0,0,0,0);const venc=new Date(s);venc.setHours(0,0,0,0);if(isNaN(venc.getTime()))return 9999;if(venc<hoje)return -1;let u=0;const c=new Date(hoje);while(c<=venc){if(c.getDay()!==0&&c.getDay()!==6)u++;c.setDate(c.getDate()+1);}return u-1;}catch{return 9999;}};
+const statusBadge=(venc,paga)=>{if(paga)return<span className="badge badge-green">Paga</span>;if(!venc)return<span className="badge badge-blue">—</span>;const dc=diasAteVencer(venc),du=diasUteisAteVencer(venc);if(dc<0)return<span className="badge badge-red">Vencido</span>;if(du<=6)return<span className="badge badge-yellow">Urgente · {du}du</span>;return<span className="badge badge-green">A vencer</span>;};
 
-function Sel({ value, onChange, options, placeholder }) {
-  return <div className="sel-w"><select className="sel" value={value} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select></div>;
-}
-function Inp({ value, onChange, type="text", placeholder, prefix }) {
-  return prefix
-    ? <div className="pfx-w"><span className="pfx">{prefix}</span><input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></div>
-    : <input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>;
-}
-function Tgl({ value, onChange, options }) {
-  return <div className="tgl-g">{options.map(o=><button key={o} className={`tgl${value===o?" on":""}`} onClick={()=>onChange(o)}>{o}</button>)}</div>;
-}
-function Field({ label, req, children }) {
-  return <div className="fld"><label className="lbl">{label}{req&&<span className="req">*</span>}</label>{children}</div>;
-}
-function Sec({ num, iconName, title, sub, children }) {
-  return <div className="card">
-    <div className="sec-head">
-      <div className="sec-num">{num}</div>
-      <div><div className="sec-title">{title}</div>{sub&&<div className="sec-sub">{sub}</div>}</div>
-      {iconName&&<div className="sec-ico"><Icon name={iconName} size={18}/></div>}
-    </div>
-    {children}
-  </div>;
-}
-function Dropzone({ files, onChange }) {
+function Sel({value,onChange,options,placeholder}){return<div className="sel-w"><select className="sel" value={value} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select></div>;}
+function Inp({value,onChange,type="text",placeholder,prefix}){return prefix?<div className="pfx-w"><span className="pfx">{prefix}</span><input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></div>:<input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>;}
+function Tgl({value,onChange,options}){return<div className="tgl-g">{options.map(o=><button key={o} className={`tgl${value===o?" on":""}`} onClick={()=>onChange(o)}>{o}</button>)}</div>;}
+function Field({label,req,children}){return<div className="fld"><label className="lbl">{label}{req&&<span className="req">*</span>}</label>{children}</div>;}
+function Sec({num,iconName,title,sub,children}){return<div className="card"><div className="sec-head"><div className="sec-num">{num}</div><div><div className="sec-title">{title}</div>{sub&&<div className="sec-sub">{sub}</div>}</div>{iconName&&<div className="sec-ico"><Icon name={iconName} size={18}/></div>}</div>{children}</div>;}
+
+// ✅ CORREÇÃO 4: Dropzone com ID único por instância
+function Dropzone({files,onChange}){
+  const inputId=useRef(`fi-${Math.random().toString(36).slice(2)}`);
   const [drag,setDrag]=useState(false);
   const fmt=b=>b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
   const add=fl=>onChange([...files,...Array.from(fl)]);
-  return <div>
-    <div className={`dz${drag?" drag":""}`} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files)}} onClick={()=>document.getElementById("fi").click()}>
+  return<div>
+    <div className={`dz${drag?" drag":""}`} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files)}} onClick={()=>document.getElementById(inputId.current)?.click()}>
       <div className="dz-icon"><Icon name="upload" size={28} color="var(--amber)"/></div>
       <div className="dz-title">Arraste ou clique para anexar</div>
       <div className="dz-sub">PDF · XML · XLSX — fatura principal e documentos auxiliares</div>
-      <input id="fi" type="file" multiple accept=".pdf,.xml,.xlsx,.xls,.png,.jpg" style={{display:"none"}} onChange={e=>add(e.target.files)}/>
+      <input id={inputId.current} type="file" multiple accept=".pdf,.xml,.xlsx,.xls,.png,.jpg" style={{display:"none"}} onChange={e=>add(e.target.files)}/>
     </div>
-    {files.length>0&&<div className="flist">{files.map((f,i)=>(
-      <div className="fitem" key={i}>
-        <div className="fitem-left">
-          <div className="fitem-icon"><Icon name={f.name.endsWith(".pdf")?"fileText":"file"} size={15} color="var(--amber)"/></div>
-          <div><div className="fname">{f.name}{i===0&&<span className="ftag">PRINCIPAL</span>}</div><div className="fsize">{fmt(f.size)}</div></div>
-        </div>
-        <button className="frm" onClick={e=>{e.stopPropagation();onChange(files.filter((_,j)=>j!==i))}}><Icon name="x" size={15}/></button>
-      </div>
-    ))}</div>}
+    {files.length>0&&<div className="flist">{files.map((f,i)=><div className="fitem" key={i}><div className="fitem-left"><div className="fitem-icon"><Icon name={f.name.endsWith(".pdf")?"fileText":"file"} size={15} color="var(--amber)"/></div><div><div className="fname">{f.name}{i===0&&<span className="ftag">PRINCIPAL</span>}</div><div className="fsize">{fmt(f.size)}</div></div></div><button className="frm" onClick={e=>{e.stopPropagation();onChange(files.filter((_,j)=>j!==i))}}><Icon name="x" size={15}/></button></div>)}</div>}
   </div>;
 }
-function Preview({ d }) {
+function Preview({d}){
   const nt=d.transportadora==="Outro"?(d.transportadoraOutro||"—"):(d.transportadora||"—");
   const path=`Financeiro / ${d.segmentacao||"—"} / ${d.marca||"—"} / ${nt} / ${d.cdOrigem||"—"} / ${d.ano||"—"} / ${d.mes||"—"} / ${d.ciclo||"—"}`;
   const venc=d.vencimento?d.vencimento.replace(/-/g,""):"DDMMAAAA";
   const file=`${d.numeroFatura||"NF"}_${venc}_${(d.natureza||"TIPO").toUpperCase()}_${nt.replace(/\s/g,"_").toUpperCase()}.pdf`;
-  return <div className="prev">
-    <div className="prev-lbl"><Icon name="folder" size={12} color="var(--amber)"/> Pré-visualização · Drive</div>
-    <div className="prev-row"><div className="prev-row-icon"><Icon name="folder" size={12}/></div><div><div className="prev-k">Pasta</div><div className="prev-v">{path}</div></div></div>
-    <div className="prev-row"><div className="prev-row-icon"><Icon name="file" size={12}/></div><div><div className="prev-k">Arquivo</div><div className="prev-v">{file}</div></div></div>
-  </div>;
+  return<div className="prev"><div className="prev-lbl"><Icon name="folder" size={12} color="var(--amber)"/> Pré-visualização · Drive</div><div className="prev-row"><div className="prev-row-icon"><Icon name="folder" size={12}/></div><div><div className="prev-k">Pasta</div><div className="prev-v">{path}</div></div></div><div className="prev-row"><div className="prev-row-icon"><Icon name="file" size={12}/></div><div><div className="prev-k">Arquivo</div><div className="prev-v">{file}</div></div></div></div>;
 }
 
-function LoginInicial({ onLogin }) {
+function LoginInicial({onLogin}){
   const [modo,setModo]=useState("gestao");
-  const [user,setUser]=useState("");
-  const [pass,setPass]=useState("");
-  const [err,setErr]=useState("");
-  const googleBtnRef=useRef(null);
-  const gsiInit=useRef(false);
-
+  const [user,setUser]=useState("");const [pass,setPass]=useState("");
+  const [err,setErr]=useState("");const [loadingLogin,setLoadingLogin]=useState(false);
+  const googleBtnRef=useRef(null);const gsiInit=useRef(false);
   const decodeJWT=t=>{try{return JSON.parse(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")));}catch{return null;}};
-  const handleGoogle=res=>{
-    const p=decodeJWT(res.credential);
-    if(!p?.email){setErr("Falha na autenticação Google.");return;}
-    const cfg=GESTAO_GOOGLE_EMAILS[p.email.toLowerCase()];
-    if(cfg){setErr("");onLogin({...cfg,email:p.email,picture:p.picture||null,loginMethod:"google"});}
-    else setErr(`E-mail ${p.email} não autorizado.`);
-  };
-  const renderBtn=()=>{
-    if(!window.google?.accounts?.id||!googleBtnRef.current)return;
-    googleBtnRef.current.innerHTML="";
-    window.google.accounts.id.renderButton(googleBtnRef.current,{theme:"filled_black",size:"large",text:"signin_with",width:300,shape:"rectangular"});
-  };
-  const initGSI=()=>{
-    if(!window.google?.accounts?.id)return;
-    if(!gsiInit.current){window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogle,ux_mode:"popup"});gsiInit.current=true;}
-    renderBtn();
-  };
+  const handleGoogle=res=>{try{const p=decodeJWT(res.credential);if(!p?.email){setErr("Falha na autenticação Google.");return;}const cfg=GESTAO_GOOGLE_EMAILS[p.email.toLowerCase()];if(cfg){setErr("");onLogin({...cfg,email:p.email,picture:null,loginMethod:"google"});}else setErr(`E-mail ${p.email} não autorizado.`);}catch{setErr("Erro na autenticação Google.");}};
+  const renderBtn=()=>{if(!window.google?.accounts?.id||!googleBtnRef.current)return;googleBtnRef.current.innerHTML="";window.google.accounts.id.renderButton(googleBtnRef.current,{theme:"filled_black",size:"large",text:"signin_with",width:300,shape:"rectangular"});};
+  const initGSI=()=>{if(!window.google?.accounts?.id)return;if(!gsiInit.current){window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:handleGoogle,ux_mode:"popup"});gsiInit.current=true;}renderBtn();};
   const clientIdOk=GOOGLE_CLIENT_ID&&!GOOGLE_CLIENT_ID.includes("COLE");
-  useEffect(()=>{
-    if(modo!=="gestao"||!clientIdOk)return;
-    if(window.google?.accounts?.id){initGSI();}
-    else{
-      const ex=document.getElementById("gsi-script");
-      if(!ex){const s=document.createElement("script");s.id="gsi-script";s.src="https://accounts.google.com/gsi/client";s.async=true;s.onload=initGSI;document.head.appendChild(s);}
-      else{const p=setInterval(()=>{if(window.google?.accounts?.id){clearInterval(p);initGSI();}},150);return()=>clearInterval(p);}
-    }
-  },[modo,clientIdOk]);
+  useEffect(()=>{if(modo!=="gestao"||!clientIdOk)return;if(window.google?.accounts?.id){initGSI();}else{const ex=document.getElementById("gsi-script");if(!ex){const s=document.createElement("script");s.id="gsi-script";s.src="https://accounts.google.com/gsi/client";s.async=true;s.onload=initGSI;document.head.appendChild(s);}else{const p=setInterval(()=>{if(window.google?.accounts?.id){clearInterval(p);initGSI();}},150);return()=>clearInterval(p);}}},[modo,clientIdOk]);
   useEffect(()=>{if(modo==="gestao"&&googleBtnRef.current&&window.google?.accounts?.id)renderBtn();});
-  const [loadingLogin, setLoadingLogin] = useState(false);
-  const tentarSenha=async()=>{
-    if(loadingLogin) return;
-    setLoadingLogin(true);
-    setErr("");
-    try {
-      const role = modo==="gestao" ? "gestao" : "transportadora";
-      // Apps Script não suporta CORS em JSON — envia como text/plain
-      const res = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ acao: "autenticar", usuario: user, senha: pass, role }),
-      });
-      const data = await res.json();
-      if(data.sucesso) {
-        onLogin({ ...data, loginMethod: "password" });
-      } else {
-        setErr(data.erro || (modo==="gestao" ? "Credenciais de gestão inválidas." : "Usuário ou senha incorretos."));
-      }
-    } catch(e) {
-      setErr("Erro de conexão. Tente novamente.");
-    } finally {
-      setLoadingLogin(false);
-    }
-  };
-
-  return <div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+  const tentarSenha=async()=>{if(loadingLogin)return;setLoadingLogin(true);setErr("");try{const role=modo==="gestao"?"gestao":"transportadora";const res=await fetch(APPS_SCRIPT_URL,{method:"POST",body:JSON.stringify({acao:"autenticar",usuario:user,senha:pass,role})});const text=await res.text();let data;try{data=JSON.parse(text);}catch{throw new Error("Resposta inválida");}if(data.sucesso){onLogin({...data,picture:null,loginMethod:"password"});}else{setErr(data.erro||(modo==="gestao"?"Credenciais de gestão inválidas.":"Usuário ou senha incorretos."));}}catch(e){setErr("Erro de conexão. Tente novamente.");}finally{setLoadingLogin(false);}};
+  return<div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
     <div style={{width:"100%",maxWidth:400}}>
       <div style={{textAlign:"center",marginBottom:28}}>
         <div style={{width:54,height:54,borderRadius:10,background:"var(--amber)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 15px",boxShadow:"0 0 30px rgba(245,166,35,0.45)"}}><Icon name="truck" size={27} color="var(--dark)"/></div>
@@ -601,16 +418,12 @@ function LoginInicial({ onLogin }) {
       </div>
       <div className="login-card">
         <div className="login-mode-sw">
-          <button className={`login-mode-btn${modo==="gestao"?" on":""}`} onClick={()=>{setModo("gestao");setErr("");setUser("");setPass("");}}>
-            <Icon name="chart" size={11}/> Gestão
-          </button>
-          <button className={`login-mode-btn${modo==="transp"?" on":""}`} onClick={()=>{setModo("transp");setErr("");setUser("");setPass("");}}>
-            <Icon name="truck" size={11}/> Transportadora
-          </button>
+          <button className={`login-mode-btn${modo==="gestao"?" on":""}`} onClick={()=>{setModo("gestao");setErr("");setUser("");setPass("");}}><Icon name="chart" size={11}/> Gestão</button>
+          <button className={`login-mode-btn${modo==="transp"?" on":""}`} onClick={()=>{setModo("transp");setErr("");setUser("");setPass("");}}><Icon name="truck" size={11}/> Transportadora</button>
         </div>
         {err&&<div className="login-err"><Icon name="alert" size={13} color="var(--red)"/>{err}</div>}
         {modo==="gestao"&&<>
-          {!clientIdOk&&<div className="setup-notice"><strong>⚙ Configuração pendente</strong><br/>Preencha <code>GOOGLE_CLIENT_ID</code> e <code>GESTAO_GOOGLE_EMAILS</code> no topo do código.</div>}
+          {!clientIdOk&&<div className="setup-notice"><strong>⚙ Configuração pendente</strong><br/>Preencha <code>VITE_GOOGLE_CLIENT_ID</code> nas variáveis de ambiente.</div>}
           <div style={{fontSize:12,color:"var(--muted)",textAlign:"center",marginBottom:4}}>Acesse com sua conta Google corporativa</div>
           <div className="google-btn-wrap" ref={googleBtnRef}/>
           <div className="divider-or">ou senha (legado)</div>
@@ -618,7 +431,7 @@ function LoginInicial({ onLogin }) {
             <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="user" size={14}/></span><input className="inp" style={{paddingLeft:30}} value={user} onChange={e=>setUser(e.target.value)} placeholder="usuário" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div>
             <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="lock" size={14}/></span><input className="inp" type="password" style={{paddingLeft:30}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div>
           </div>
-          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin && <Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
+          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin&&<Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
         </>}
         {modo==="transp"&&<>
           <div style={{fontSize:12,color:"var(--muted)",textAlign:"center",marginBottom:18}}>Acesse com suas credenciais de transportadora</div>
@@ -626,7 +439,7 @@ function LoginInicial({ onLogin }) {
             <Field label="Usuário"><div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="user" size={14}/></span><input className="inp" style={{paddingLeft:30}} value={user} onChange={e=>setUser(e.target.value)} placeholder="seu.usuario" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div></Field>
             <Field label="Senha"><div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.35,display:"flex"}}><Icon name="lock" size={14}/></span><input className="inp" type="password" style={{paddingLeft:30}} value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&tentarSenha()}/></div></Field>
           </div>
-          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin && <Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
+          <button className="btn-login" onClick={tentarSenha} disabled={loadingLogin}>{loadingLogin?"Entrando...":"Entrar"} {!loadingLogin&&<Icon name="arrowRight" size={14} color="var(--dark)"/>}</button>
         </>}
       </div>
       <div style={{textAlign:"center",marginTop:16,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",textTransform:"uppercase",color:"var(--dim)"}}>Portal Interno · Google Drive Corporativo</div>
@@ -634,94 +447,57 @@ function LoginInicial({ onLogin }) {
   </div>;
 }
 
-function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
-  const getBlank = () => {
-    const transp = transportadoraFixa || "";
-    const ciclos = getCiclosTransp(transp);
-    return {
-      numeroFatura:"", transportadora:transp, transportadoraOutro:"",
-      marca:"", cdOrigem:"", segmentacao:"",
-      mes:"", ano:"",
-      ciclo: ciclos.length===1 ? ciclos[0] : "",
-      natureza:"", naturezaOutro:"", vencimento:"", valorBruto:"",
-      possuiDesconto:"", valorDesconto:"", motivoDesconto:"", motivoOutro:"", files:[]
-    };
-  };
+function PortalEnvio({onNovaFatura,transportadoraFixa}){
+  const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
   const [f,setF]=useState(getBlank);
-  const [done,setDone]=useState(false);
-  const [loading,setLoading]=useState(false);
+  const [done,setDone]=useState(false);const [loading,setLoading]=useState(false);const [protocolo,setProtocolo]=useState("");
   const s=k=>v=>setF(p=>({...p,[k]:v}));
   const fmtCur=v=>{const n=v.replace(/\D/g,"");if(!n)return"";return(parseFloat(n)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
-  const resetForm = () => { setF(getBlank()); setDone(false); setLoading(false); setProtocolo(""); };
-
-  const nomeTranspAtual = f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-  const ciclosDisponiveis = getCiclosTransp(nomeTranspAtual);
-
-  const prevTranspRef = useRef(nomeTranspAtual);
-  useEffect(()=>{
-    if(!nomeTranspAtual) return;
-    if(prevTranspRef.current === nomeTranspAtual) return;
-    prevTranspRef.current = nomeTranspAtual;
-    if(ciclosDisponiveis.length===1) s("ciclo")(ciclosDisponiveis[0]);
-    else s("ciclo")("");
-  },[nomeTranspAtual]);
-
-  const gerarProtocoloLocal = (transp, numeroFatura, vencimento) => {
-    const tr   = (transp        || "XX").substring(0,3).toUpperCase();
-    const nf   = (numeroFatura  || "").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();
-    const venc = (vencimento    || "").replace(/-/g,"").substring(2);
-    return `FAT-${tr}-${nf}-${venc}`;
-  };
-
-  const [protocolo, setProtocolo] = useState("");
-
-  // ✅ Análise de vencimento com ciclo para SR Log
-  const analiseVencimento = useMemo(() => {
-    if (!f.vencimento) return null;
-    return analisarViabilidadePagamento(f.vencimento, nomeTranspAtual, f.ciclo);
-  }, [f.vencimento, nomeTranspAtual, f.ciclo]);
-
-  const valid=()=>{
-    const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-    const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;
-    const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;
-    const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;
-    return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;
-  };
+  const resetForm=()=>{setF(getBlank());setDone(false);setLoading(false);setProtocolo("");};
+  const nomeTranspAtual=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
+  const ciclosDisponiveis=getCiclosTransp(nomeTranspAtual);
+  const prevTranspRef=useRef(nomeTranspAtual);
+  useEffect(()=>{if(!nomeTranspAtual)return;if(prevTranspRef.current===nomeTranspAtual)return;prevTranspRef.current=nomeTranspAtual;if(ciclosDisponiveis.length===1)s("ciclo")(ciclosDisponiveis[0]);else s("ciclo")("");},[nomeTranspAtual]);
+  const gerarProtocoloLocal=(transp,numeroFatura,vencimento)=>{const tr=(transp||"XX").substring(0,3).toUpperCase();const nf=(numeroFatura||"").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();const venc=(vencimento||"").replace(/-/g,"").substring(2);return `FAT-${tr}-${nf}-${venc}`;};
+  // ✅ CORREÇÃO: useMemo protegido contra datas inválidas
+  const analiseVencimento=useMemo(()=>{if(!f.vencimento||f.vencimento.length<10)return null;try{return analisarViabilidadePagamento(f.vencimento,nomeTranspAtual,f.ciclo);}catch{return null;}},[f.vencimento,nomeTranspAtual,f.ciclo]);
+  const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
+  const totalArquivosMB=f.files.reduce((s,file)=>s+file.size,0)/1048576;
+  const arquivosMuitoGrandes=totalArquivosMB>35;
   const limpar=()=>{if(window.confirm("Deseja limpar todos os campos?"))resetForm();};
   const submit=async()=>{
-    if(!valid())return; setLoading(true);
+    if(!valid())return;
+    if(arquivosMuitoGrandes){alert(`Total de arquivos (${totalArquivosMB.toFixed(1)} MB) excede o limite de 35 MB. Reduza o tamanho dos arquivos.`);return;}
+    setLoading(true);
     try{
-      const arquivosBase64=await Promise.all(f.files.map(file=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({nomeOriginal:file.name,mimeType:file.type||"application/octet-stream",tamanhoBytes:file.size,conteudoBase64:r.result.split(",")[1]});r.onerror=rej;r.readAsDataURL(file);})));
+      // ✅ Leitura sequencial — evita estouro de memória com arquivos grandes
+      const arquivosBase64=[];
+      for(const file of f.files){
+        const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({nomeOriginal:file.name,mimeType:file.type||"application/octet-stream",tamanhoBytes:file.size,conteudoBase64:r.result.split(",")[1]});r.onerror=rej;r.readAsDataURL(file);});
+        arquivosBase64.push(b64);
+      }
       const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
-      const proto=gerarProtocoloLocal(nt, f.numeroFatura, f.vencimento);
-      setProtocolo(proto);
-      const analise = analisarViabilidadePagamento(f.vencimento, nt, f.ciclo);
-      const avisoVenc = analise?.viavel===false ? analise.dataPagamentoStr : null;
-
-      const prazoContratual = PRAZO_PAGAMENTO[nt] ?? PRAZO_PADRAO;
-      const hoje = new Date(); hoje.setHours(0,0,0,0);
-      const dataMinContratual = new Date(hoje);
-      dataMinContratual.setDate(dataMinContratual.getDate() + prazoContratual);
-      const [vy,vm,vd] = f.vencimento.split("-").map(Number);
-      const vencDate = new Date(vy, vm-1, vd); vencDate.setHours(0,0,0,0);
-      const vencimentoAbaixoContrato = vencDate < dataMinContratual;
-      const dataMinVencStr = `${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
-
-      // ✅ SR Log: inclui info de vencimento inválido no payload
-      const srLogVencInvalido = analise?.srLogCheck && analise.srLogCheck.abaixoDoAcordado;
-      const srLogDataEsperada = srLogVencInvalido ? (analise.srLogCheck.dataEsperadaStr || "") : "";
-
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato:vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido:srLogVencInvalido||false,srLogDataEsperada};
+      const proto=gerarProtocoloLocal(nt,f.numeroFatura,f.vencimento);setProtocolo(proto);
+      const analise=analisarViabilidadePagamento(f.vencimento,nt,f.ciclo);
+      const avisoVenc=analise?.viavel===false?analise.dataPagamentoStr:null;
+      const prazoContratual=PRAZO_PAGAMENTO[nt]??PRAZO_PADRAO;
+      const hoje=new Date();hoje.setHours(0,0,0,0);
+      const dataMinContratual=new Date(hoje);dataMinContratual.setDate(dataMinContratual.getDate()+prazoContratual);
+      const[vy,vm,vd]=f.vencimento.split("-").map(Number);
+      const vencDate=new Date(vy,vm-1,vd);vencDate.setHours(0,0,0,0);
+      const vencimentoAbaixoContrato=vencDate<dataMinContratual;
+      const dataMinVencStr=`${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
+      const srLogVencInvalido=analise?.srLogCheck&&analise.srLogCheck.abaixoDoAcordado;
+      const srLogDataEsperada=srLogVencInvalido?(analise.srLogCheck.dataEsperadaStr||""):"";
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido:srLogVencInvalido||false,srLogDataEsperada};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
       onNovaFatura(nova);setLoading(false);setDone(true);
-    }catch(err){setLoading(false);alert("Erro ao enviar: "+err.message);}
+    }catch(err){setLoading(false);alert("Erro ao enviar: "+(err?.message||"Tente novamente."));}
   };
-
   if(done){
-    const analiseSuccess = analisarViabilidadePagamento(f.vencimento, f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora, f.ciclo);
+    const analiseSuccess=analisarViabilidadePagamento(f.vencimento,f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora,f.ciclo);
     return<div className="spage"><div className="scard">
       <div className="sico"><Icon name="check" size={24} color="var(--amber)"/></div>
       <div className="stitle">Fatura Registrada</div>
@@ -731,45 +507,17 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:800,color:"var(--amber)",letterSpacing:"0.05em"}}>{protocolo}</div>
         <div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Guarde este número para acompanhamento</div>
       </div>
-      {analiseSuccess&&!analiseSuccess.viavel&&(
-        <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
-            <Icon name="alert" size={13} color="var(--yellow)"/>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--yellow)"}}>Atenção — prazo de pagamento</span>
-          </div>
-          <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>
-            Não será possível realizar o pagamento no vencimento informado.<br/>
-            O pagamento mais próximo possível é em <strong style={{color:"var(--yellow)"}}>{analiseSuccess.dataPagamentoStr}</strong>.<br/>
-            <span style={{fontSize:12,color:"var(--muted)"}}>Nossa equipe entrará em contato para ajuste dos documentos.</span>
-          </div>
-        </div>
-      )}
-      {/* ✅ Aviso SR Log vencimento inválido na tela de sucesso */}
-      {analiseSuccess?.srLogCheck && analiseSuccess.srLogCheck.abaixoDoAcordado && (
-        <div style={{background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}>
-          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
-            <Icon name="alert" size={13} color="var(--orange)"/>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--orange)"}}>SR Log — vencimento fora do acordado</span>
-          </div>
-          <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>
-            Para {analiseSuccess.srLogCheck.ciclo}, o vencimento deve ser <strong style={{color:"var(--orange)"}}>{analiseSuccess.srLogCheck.dataEsperadaStr}</strong> ({analiseSuccess.srLogCheck.descEsperado}).
-          </div>
-        </div>
-      )}
+      {analiseSuccess&&!analiseSuccess.viavel&&<div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}><Icon name="alert" size={13} color="var(--yellow)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--yellow)"}}>Atenção — prazo de pagamento</span></div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>Não será possível realizar o pagamento no vencimento informado.<br/>O pagamento mais próximo possível é em <strong style={{color:"var(--yellow)"}}>{analiseSuccess.dataPagamentoStr}</strong>.<br/><span style={{fontSize:12,color:"var(--muted)"}}>Nossa equipe entrará em contato para ajuste dos documentos.</span></div></div>}
+      {analiseSuccess?.srLogCheck&&analiseSuccess.srLogCheck.abaixoDoAcordado&&<div style={{background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:8,padding:"12px 14px",marginBottom:12,textAlign:"left"}}><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}><Icon name="alert" size={13} color="var(--orange)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--orange)"}}>SR Log — vencimento fora do acordado</span></div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>Para {analiseSuccess.srLogCheck.ciclo}, o vencimento deve ser <strong style={{color:"var(--orange)"}}>{analiseSuccess.srLogCheck.dataEsperadaStr}</strong> ({analiseSuccess.srLogCheck.descEsperado}).</div></div>}
       <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center",fontSize:12,color:"var(--green)",marginBottom:14}}><Icon name="mail" size={13} color="var(--green)"/>Notificação enviada à equipe de gestão</div>
       {!transportadoraFixa&&<Preview d={f}/>}
       <button className="btn-r" onClick={resetForm}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
     </div></div>;
   }
-
   return<div className="page-sm">
     <Sec num="1" iconName="building" title="Emissor" sub="Transportadora e empresa do grupo destinatária da fatura">
       <div className="g2" style={{marginBottom:12}}>
-        <Field label="Transportadora" req>
-          {transportadoraFixa
-            ?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{transportadoraFixa}</div>
-            :<Sel value={f.transportadora} onChange={v=>{s("transportadora")(v);s("transportadoraOutro")("");}} options={transportadoras} placeholder="Selecione..."/>}
-        </Field>
+        <Field label="Transportadora" req>{transportadoraFixa?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{transportadoraFixa}</div>:<Sel value={f.transportadora} onChange={v=>{s("transportadora")(v);s("transportadoraOutro")("");}} options={transportadoras} placeholder="Selecione..."/>}</Field>
         <Field label="Empresa do Grupo" req><Sel value={f.marca} onChange={s("marca")} options={empresasGrupo} placeholder="Selecione..."/></Field>
       </div>
       {!transportadoraFixa&&f.transportadora==="Outro"&&<div style={{marginBottom:12}}><Field label="Nome da Transportadora" req><Inp value={f.transportadoraOutro||""} onChange={s("transportadoraOutro")} placeholder="Digite o nome da transportadora..."/></Field></div>}
@@ -786,79 +534,30 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
         <Field label="Mês" req><Sel value={f.mes} onChange={s("mes")} options={meses} placeholder="Mês..."/></Field>
         <Field label="Ano" req><Sel value={f.ano} onChange={s("ano")} options={anos} placeholder="Ano..."/></Field>
       </div>
-      <Field label="Ciclo" req>
-        {ciclosDisponiveis.length===1
-          ?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{ciclosDisponiveis[0]}</div>
-          :<Tgl value={f.ciclo} onChange={s("ciclo")} options={ciclosDisponiveis}/>}
-      </Field>
+      <Field label="Ciclo" req>{ciclosDisponiveis.length===1?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{ciclosDisponiveis[0]}</div>:<Tgl value={f.ciclo} onChange={s("ciclo")} options={ciclosDisponiveis}/>}</Field>
       {ciclosDisponiveis.length===1&&<div style={{fontSize:11,color:"var(--muted)",marginTop:6}}>Ciclo fixo para esta transportadora</div>}
     </Sec>
     <Sec num="5" iconName="dollar" title="Dados Financeiros" sub="Natureza, vencimento e valor da cobrança">
       <div className="g3" style={{marginBottom:12}}>
-        <Field label="Natureza" req>
-          <Sel value={f.natureza} onChange={v=>{s("natureza")(v);s("naturezaOutro")("");}} options={["Frete","Difal","Transferência de Material","Outro"]} placeholder="Tipo..."/>
-        </Field>
+        <Field label="Natureza" req><Sel value={f.natureza} onChange={v=>{s("natureza")(v);s("naturezaOutro")("");}} options={["Frete","Difal","Transferência de Material","Outro"]} placeholder="Tipo..."/></Field>
         {f.natureza==="Outro"&&<Field label="Descreva a natureza" req><Inp value={f.naturezaOutro||""} onChange={s("naturezaOutro")} placeholder="Ex: Armazenagem, Manuseio..."/></Field>}
         <Field label="Vencimento" req><Inp type="date" value={f.vencimento} onChange={s("vencimento")}/></Field>
-
-        {/* ✅ Avisos de vencimento — padrão + SR Log */}
-        {f.vencimento && analiseVencimento && (()=>{
-          const alertas = [];
-
-          // Aviso padrão: prazo de pagamento inviável
-          if (!analiseVencimento.viavel) {
-            alertas.push(
-              <div key="pgto" style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}>
-                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
-                  <Icon name="alert" size={13} color="var(--yellow)"/>
-                  Pagamento fora do prazo!
-                </div>
-                <div style={{color:"var(--muted)",lineHeight:1.6}}>
-                  {/* Menciona prazo contratual só se vencimento abaixo do acordado E não for SR Log (que já tem aviso próprio) */}
-                  {analiseVencimento.vencimentoAbaixoContrato && PRAZO_PAGAMENTO[nomeTranspAtual] && !analiseVencimento.srLogCheck?.abaixoDoAcordado
-                    ? <>Vencimento abaixo do prazo contratual de <strong style={{color:"var(--yellow)"}}>{analiseVencimento.prazoContratual} dias</strong>.<br/></>
-                    : null
-                  }
-                  Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analiseVencimento.dataPagamentoStr}</strong>.<br/>
-                  <span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span>
-                </div>
-              </div>
-            );
-          }
-
-          // ✅ Aviso SR Log: só alerta se vencimento for MENOR que o acordado
-          if (analiseVencimento.srLogCheck && analiseVencimento.srLogCheck.abaixoDoAcordado) {
-            alertas.push(
-              <div key="srlog" style={{padding:"10px 12px",background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:6,fontSize:12,color:"var(--orange)"}}>
-                <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}>
-                  <Icon name="alert" size={13} color="var(--orange)"/>
-                  SR Log — vencimento incorreto
-                </div>
-                <div style={{color:"var(--muted)",lineHeight:1.6}}>
-                  Para <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.ciclo}</strong>, o vencimento contratual é <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.dataEsperadaStr}</strong> ({analiseVencimento.srLogCheck.descEsperado}).
-                </div>
-              </div>
-            );
-          }
-
-          return alertas.length > 0 ? <>{alertas}</> : null;
+        {f.vencimento&&analiseVencimento&&(()=>{
+          const alertas=[];
+          if(!analiseVencimento.viavel){alertas.push(<div key="pgto" style={{padding:"10px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)"}}><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}><Icon name="alert" size={13} color="var(--yellow)"/>Pagamento fora do prazo!</div><div style={{color:"var(--muted)",lineHeight:1.6}}>{analiseVencimento.vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nomeTranspAtual]&&!analiseVencimento.srLogCheck?.abaixoDoAcordado?<>Vencimento abaixo do prazo contratual de <strong style={{color:"var(--yellow)"}}>{analiseVencimento.prazoContratual} dias</strong>.<br/></>:null}Próximo pagamento possível: <strong style={{color:"var(--yellow)"}}>{analiseVencimento.dataPagamentoStr}</strong>.<br/><span style={{fontSize:11}}>A fatura será registrada com aviso para contato com a transportadora.</span></div></div>);}
+          if(analiseVencimento.srLogCheck&&analiseVencimento.srLogCheck.abaixoDoAcordado){alertas.push(<div key="srlog" style={{padding:"10px 12px",background:"var(--orange-g)",border:"1px solid var(--orange-b)",borderRadius:6,fontSize:12,color:"var(--orange)"}}><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4,fontWeight:700}}><Icon name="alert" size={13} color="var(--orange)"/>SR Log — vencimento incorreto</div><div style={{color:"var(--muted)",lineHeight:1.6}}>Para <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.ciclo}</strong>, o vencimento contratual é <strong style={{color:"var(--orange)"}}>{analiseVencimento.srLogCheck.dataEsperadaStr}</strong> ({analiseVencimento.srLogCheck.descEsperado}).</div></div>);}
+          return alertas.length>0?<>{alertas}</>:null;
         })()}
-
         <Field label="Valor Bruto" req><Inp value={f.valorBruto} onChange={v=>s("valorBruto")(fmtCur(v))} placeholder="0,00" prefix="R$"/></Field>
       </div>
       <div className="disc-box">
         <Field label="Possui desconto?" req><Tgl value={f.possuiDesconto} onChange={s("possuiDesconto")} options={["Sim","Não"]}/></Field>
-        {f.possuiDesconto==="Sim"&&<div className="disc-fields">
-          <div className="g2" style={{marginBottom:f.motivoDesconto==="Outro"?12:0}}>
-            <Field label="Valor do Desconto" req><Inp value={f.valorDesconto} onChange={v=>s("valorDesconto")(fmtCur(v))} placeholder="0,00" prefix="R$"/></Field>
-            <Field label="Motivo" req><Sel value={f.motivoDesconto} onChange={v=>{s("motivoDesconto")(v);s("motivoOutro")("");}} options={motivosDesc} placeholder="Selecione..."/></Field>
-          </div>
-          {f.motivoDesconto==="Outro"&&<Field label="Descreva o motivo" req><Inp value={f.motivoOutro||""} onChange={s("motivoOutro")} placeholder="Descreva o motivo do desconto..."/></Field>}
-        </div>}
+        {f.possuiDesconto==="Sim"&&<div className="disc-fields"><div className="g2" style={{marginBottom:f.motivoDesconto==="Outro"?12:0}}><Field label="Valor do Desconto" req><Inp value={f.valorDesconto} onChange={v=>s("valorDesconto")(fmtCur(v))} placeholder="0,00" prefix="R$"/></Field><Field label="Motivo" req><Sel value={f.motivoDesconto} onChange={v=>{s("motivoDesconto")(v);s("motivoOutro")("");}} options={motivosDesc} placeholder="Selecione..."/></Field></div>{f.motivoDesconto==="Outro"&&<Field label="Descreva o motivo" req><Inp value={f.motivoOutro||""} onChange={s("motivoOutro")} placeholder="Descreva o motivo do desconto..."/></Field>}</div>}
       </div>
     </Sec>
     <Sec num="6" iconName="paperclip" title="Documentos" sub="Fatura principal (obrigatório) + documentos auxiliares">
       <Field label="Anexar arquivos" req><Dropzone files={f.files} onChange={s("files")}/></Field>
+      {f.files.length>0&&(()=>{const mb=f.files.reduce((s,file)=>s+file.size,0)/1048576;if(mb>25)return<div style={{marginTop:8,padding:"8px 12px",background:mb>35?"var(--red-g)":"var(--yellow-g)",border:`1px solid ${mb>35?"var(--red-b)":"var(--yellow-b)"}`,borderRadius:6,fontSize:12,color:mb>35?"var(--red)":"var(--yellow)",display:"flex",alignItems:"center",gap:7}}><Icon name="alert" size={13} color={mb>35?"var(--red)":"var(--yellow)"}/>{mb>35?`Limite excedido (${mb.toFixed(1)} MB). Máximo: 35 MB. Remova arquivos.`:`Atenção: total de ${mb.toFixed(1)} MB. Limite: 35 MB.`}</div>;return null;})()}
     </Sec>
     <div className="card">
       <Preview d={f}/>
@@ -874,159 +573,52 @@ function PortalEnvio({ onNovaFatura, transportadoraFixa }) {
   </div>;
 }
 
-function Gestao({ faturas: faturasLocais }) {
+function Gestao({faturas:faturasLocais}){
   const [faturas,setFaturas]=useState(faturasLocais);
-  const [carregando,setCarregando]=useState(true);
-  const [erroCarregar,setErroCarregar]=useState(false);
-  const [filtroTransp,   setFiltroTransp]   = useState("");
-  const [filtroStatus,   setFiltroStatus]   = useState("");
-  const [filtroEmp,      setFiltroEmp]      = useState("");
-  const [filtroNatureza, setFiltroNatureza] = useState("");
-  const [filtroMes,      setFiltroMes]      = useState("");
-  const [filtroAno,      setFiltroAno]      = useState("");
-  const [filtroPgto,     setFiltroPgto]     = useState("");
-  const [busca,          setBusca]          = useState("");
-  const [rTransp,   setRTransp]   = useState("");
-  const [rEmp,      setREmp]      = useState("");
-  const [rNatureza, setRNatureza] = useState("");
-  const [rMes,      setRMes]      = useState("");
-  const [rAno,      setRAno]      = useState("");
-  const [rPgto,     setRPgto]     = useState("");
-  const [rBusca,    setRBusca]    = useState("");
-  const [selecionadas,setSelecionadas]=useState(new Set());
-  const [marcando,setMarcando]=useState(false);
-  const [pagandoId,setPagandoId]=useState(null);
-  const [dataPgtoInput,setDataPgtoInput]=useState("");
-  const [ajustandoId,setAjustandoId]=useState(null);
-  const [novaDataVenc,setNovaDataVenc]=useState("");
-  const [subAba,setSubAba]=useState("resumo");
-  const [historicoData,setHistoricoData]=useState("");
+  const [carregando,setCarregando]=useState(true);const [erroCarregar,setErroCarregar]=useState(false);
+  const [filtroTransp,setFiltroTransp]=useState("");const [filtroStatus,setFiltroStatus]=useState("");
+  const [filtroEmp,setFiltroEmp]=useState("");const [filtroNatureza,setFiltroNatureza]=useState("");
+  const [filtroMes,setFiltroMes]=useState("");const [filtroAno,setFiltroAno]=useState("");
+  const [filtroPgto,setFiltroPgto]=useState("");const [busca,setBusca]=useState("");
+  const [rTransp,setRTransp]=useState("");const [rEmp,setREmp]=useState("");
+  const [rNatureza,setRNatureza]=useState("");const [rMes,setRMes]=useState("");
+  const [rAno,setRAno]=useState("");const [rPgto,setRPgto]=useState("");const [rBusca,setRBusca]=useState("");
+  const [selecionadas,setSelecionadas]=useState(new Set());const [marcando,setMarcando]=useState(false);
+  const [pagandoId,setPagandoId]=useState(null);const [dataPgtoInput,setDataPgtoInput]=useState("");
+  const [ajustandoId,setAjustandoId]=useState(null);const [novaDataVenc,setNovaDataVenc]=useState("");
+  const [subAba,setSubAba]=useState("resumo");const [historicoData,setHistoricoData]=useState("");
 
-  useEffect(()=>{
-    const carregar=async()=>{
-      try{setCarregando(true);const res=await fetch(APPS_SCRIPT_URL);const data=await res.json();if(data.sucesso&&data.faturas?.length>0)setFaturas(data.faturas);}
-      catch{setErroCarregar(true);}
-      finally{setCarregando(false);}
-    };
-    carregar();
-  },[]);
+  useEffect(()=>{const carregar=async()=>{try{setCarregando(true);const res=await fetch(APPS_SCRIPT_URL);const data=await res.json();if(data.sucesso&&data.faturas?.length>0)setFaturas(data.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);}};carregar();},[]);
 
-  const todasFaturas=useMemo(()=>{
-    if(faturas.length===0)return faturasLocais.map((f,idx)=>({...f,_key:`local-${idx}-${f.id}`}));
-    const protos=new Set(faturas.map(f=>f.protocolo).filter(Boolean));
-    const novas=faturasLocais.filter(f=>f.protocolo&&!protos.has(f.protocolo));
-    return [...faturas,...novas].map((f,idx)=>({...f,_key:`f-${idx}-${f.protocolo||f.id}`}));
-  },[faturas,faturasLocais]);
+  const todasFaturas=useMemo(()=>{if(faturas.length===0)return faturasLocais.map((f,idx)=>({...f,_key:`local-${idx}-${f.id}`}));const protos=new Set(faturas.map(f=>f.protocolo).filter(Boolean));const novas=faturasLocais.filter(f=>f.protocolo&&!protos.has(f.protocolo));return[...faturas,...novas].map((f,idx)=>({...f,_key:`f-${idx}-${f.protocolo||f.id}`}));},[faturas,faturasLocais]);
 
-  const vencidos  = todasFaturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);
-  const alertas   = todasFaturas.filter(f=>{
-    if(f.status==="Paga"||!f.vencimento) return false;
-    const dc=diasAteVencer(f.vencimento);
-    const du=diasUteisAteVencer(f.vencimento);
-    return dc>=0 && du<=6;
-  });
+  const faturasVisiveis=useMemo(()=>todasFaturas.filter(f=>{try{const dc=diasAteVencer(f.vencimento),du=diasUteisAteVencer(f.vencimento),paga=f.status==="Paga";if(filtroTransp&&(f.transportadora||"")!==filtroTransp)return false;if(filtroStatus==="Vencido"&&(paga||dc>=0))return false;if(filtroStatus==="Urgente"&&(paga||dc<0||du>6))return false;if(filtroStatus==="A vencer"&&(paga||dc<0||du<=6))return false;if(filtroEmp&&(f.empresa||"")!==filtroEmp)return false;if(filtroNatureza&&(f.natureza||"")!==filtroNatureza)return false;if(filtroMes&&(f.mes||"")!==filtroMes)return false;if(filtroAno&&(f.ano||"")!==filtroAno)return false;if(filtroPgto==="Paga"&&!paga)return false;if(filtroPgto==="Pendente"&&paga)return false;if(busca){const q=busca.toLowerCase();const str=v=>(v==null?"":String(v)).toLowerCase();if(![f.transportadora,f.empresa,f.numeroFatura,f.cd,f.natureza,f.seg].some(v=>str(v).includes(q)))return false;}return true;}catch{return true;}}),[todasFaturas,filtroTransp,filtroStatus,filtroEmp,filtroNatureza,filtroMes,filtroAno,filtroPgto,busca]);
 
-  const faturasVisiveis=useMemo(()=>todasFaturas.filter(f=>{
-    const dc=diasAteVencer(f.vencimento);
-    const du=diasUteisAteVencer(f.vencimento);
-    const paga=f.status==="Paga";
-    if(filtroTransp&&(f.transportadora||"")!==filtroTransp)return false;
-    if(filtroStatus==="Vencido"&&(paga||dc>=0))return false;
-    if(filtroStatus==="Urgente"&&(paga||dc<0||du>6))return false;
-    if(filtroStatus==="A vencer"&&(paga||dc<0||du<=6))return false;
-    if(filtroEmp&&(f.empresa||"")!==filtroEmp)return false;
-    if(filtroNatureza&&(f.natureza||"")!==filtroNatureza)return false;
-    if(filtroMes&&(f.mes||"")!==filtroMes)return false;
-    if(filtroAno&&(f.ano||"")!==filtroAno)return false;
-    if(filtroPgto==="Paga"&&!paga)return false;
-    if(filtroPgto==="Pendente"&&paga)return false;
-    if(busca){const q=busca.toLowerCase();const str=v=>(v==null?"":String(v)).toLowerCase();if(![f.transportadora,f.empresa,f.numeroFatura,f.cd,f.natureza,f.seg].some(v=>str(v).includes(q)))return false;}
-    return true;
-  }),[todasFaturas,filtroTransp,filtroStatus,filtroEmp,filtroNatureza,filtroMes,filtroAno,filtroPgto,busca]);
-
-  const marcarPagas=async(protocolos, dataPagamento)=>{
-    setMarcando(true);
-    try{
-      const dt = dataPagamento || new Date().toLocaleDateString("pt-BR");
-      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"marcarPago",protocolos:[...protocolos],dataPagamento:dt})});
-      setFaturas(prev=>prev.map(f=>protocolos.has(f.protocolo)?{...f,status:"Paga",dataPagamento:dt}:f));
-      setSelecionadas(new Set());
-      setPagandoId(null);
-      setDataPgtoInput("");
-    }catch(e){alert("Erro: "+e.message);}
-    finally{setMarcando(false);}
-  };
-
-  const registrarAjuste=async(protocolo, novoVencimento)=>{
-    try{
-      const [y,m,d]=novoVencimento.split("-");
-      const novoVencFmt=`${d}/${m}/${y}`;
-      const faturaAtual = faturas.find(f=>f.protocolo===protocolo);
-      const analise = analisarViabilidadePagamento(novoVencimento, faturaAtual?.transportadora||"", faturaAtual?.ciclo||"");
-      const novoAviso = analise?.viavel===false ? analise.dataPagamentoStr : null;
-      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:novoVencFmt,novoAviso:novoAviso||""})});
-      setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento,avisoVencimento:novoAviso||""}:f));
-      setAjustandoId(null);
-      setNovaDataVenc("");
-    }catch(e){alert("Erro: "+e.message);}
-  };
+  const marcarPagas=async(protocolos,dataPagamento)=>{setMarcando(true);try{const dt=dataPagamento||new Date().toLocaleDateString("pt-BR");await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"marcarPago",protocolos:[...protocolos],dataPagamento:dt})});setFaturas(prev=>prev.map(f=>protocolos.has(f.protocolo)?{...f,status:"Paga",dataPagamento:dt}:f));setSelecionadas(new Set());setPagandoId(null);setDataPgtoInput("");}catch(e){alert("Erro: "+e.message);}finally{setMarcando(false);}};
+  const registrarAjuste=async(protocolo,novoVencimento)=>{try{const[y,m,d]=novoVencimento.split("-");const novoVencFmt=`${d}/${m}/${y}`;const faturaAtual=faturas.find(f=>f.protocolo===protocolo);const analise=analisarViabilidadePagamento(novoVencimento,faturaAtual?.transportadora||"",faturaAtual?.ciclo||"");const novoAviso=analise?.viavel===false?analise.dataPagamentoStr:null;await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:novoVencFmt,novoAviso:novoAviso||""})});setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento,avisoVencimento:novoAviso||""}:f));setAjustandoId(null);setNovaDataVenc("");}catch(e){alert("Erro: "+e.message);}};
 
   const limparFiltros=()=>{setFiltroTransp("");setFiltroStatus("");setFiltroEmp("");setFiltroNatureza("");setFiltroMes("");setFiltroAno("");setFiltroPgto("");setBusca("");};
   const temFiltro=filtroTransp||filtroStatus||filtroEmp||filtroNatureza||filtroMes||filtroAno||filtroPgto||busca;
 
-  const faturasResumo=useMemo(()=>todasFaturas.filter(f=>{
-    const paga=f.status==="Paga";
-    if(rTransp   && (f.transportadora||"")!==rTransp)   return false;
-    if(rEmp      && (f.empresa||"")!==rEmp)             return false;
-    if(rNatureza && (f.natureza||"")!==rNatureza)       return false;
-    if(rMes      && (f.mes||"")!==rMes)                 return false;
-    if(rAno      && (f.ano||"")!==rAno)                 return false;
-    if(rPgto==="Paga"    && !paga)                      return false;
-    if(rPgto==="Pendente"&&  paga)                      return false;
-    if(rBusca){const q=rBusca.toLowerCase();const str=v=>(v==null?"":String(v)).toLowerCase();if(![f.transportadora,f.empresa,f.numeroFatura,f.cd,f.natureza,f.seg].some(v=>str(v).includes(q)))return false;}
-    return true;
-  }),[todasFaturas,rTransp,rEmp,rNatureza,rMes,rAno,rPgto,rBusca]);
+  const faturasResumo=useMemo(()=>todasFaturas.filter(f=>{try{const paga=f.status==="Paga";if(rTransp&&(f.transportadora||"")!==rTransp)return false;if(rEmp&&(f.empresa||"")!==rEmp)return false;if(rNatureza&&(f.natureza||"")!==rNatureza)return false;if(rMes&&(f.mes||"")!==rMes)return false;if(rAno&&(f.ano||"")!==rAno)return false;if(rPgto==="Paga"&&!paga)return false;if(rPgto==="Pendente"&&paga)return false;if(rBusca){const q=rBusca.toLowerCase();const str=v=>(v==null?"":String(v)).toLowerCase();if(![f.transportadora,f.empresa,f.numeroFatura,f.cd,f.natureza,f.seg].some(v=>str(v).includes(q)))return false;}return true;}catch{return true;}}),[todasFaturas,rTransp,rEmp,rNatureza,rMes,rAno,rPgto,rBusca]);
 
   const limparFiltrosResumo=()=>{setRTransp("");setREmp("");setRNatureza("");setRMes("");setRAno("");setRPgto("");setRBusca("");};
   const temFiltroResumo=rTransp||rEmp||rNatureza||rMes||rAno||rPgto||rBusca;
-
-  const porTranspResumo=useMemo(()=>{
-    const m={};faturasResumo.forEach(f=>{m[f.transportadora||"—"]=(m[f.transportadora||"—"]||0)+(f.valor||0);});
-    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
-  },[faturasResumo]);
+  const porTranspResumo=useMemo(()=>{const m={};faturasResumo.forEach(f=>{m[f.transportadora||"—"]=(m[f.transportadora||"—"]||0)+(f.valor||0);});return Object.entries(m).sort((a,b)=>b[1]-a[1]);},[faturasResumo]);
   const maxTranspResumo=porTranspResumo[0]?.[1]||1;
-
-  const naturezasUnicas = useMemo(()=>{
-    const base = ["Frete","Difal","Transferência de Material"];
-    const extras = [...new Set(todasFaturas.map(f=>f.natureza).filter(n=>n&&!base.includes(n)))].sort();
-    return [...base, ...extras];
-  },[todasFaturas]);
-
-  const transportadorasUnicas = useMemo(()=>{
-    const base = transportadoras.filter(t=>t!=="Outro");
-    const extras = [...new Set(todasFaturas.map(f=>f.transportadora).filter(t=>t&&!base.includes(t)))].sort();
-    return [...base, ...extras];
-  },[todasFaturas]);
-
+  const naturezasUnicas=useMemo(()=>{const base=["Frete","Difal","Transferência de Material"];const extras=[...new Set(todasFaturas.map(f=>f.natureza).filter(n=>n&&!base.includes(n)))].sort();return[...base,...extras];},[todasFaturas]);
+  const transportadorasUnicas=useMemo(()=>{const base=transportadoras.filter(t=>t!=="Outro");const extras=[...new Set(todasFaturas.map(f=>f.transportadora).filter(t=>t&&!base.includes(t)))].sort();return[...base,...extras];},[todasFaturas]);
   const recarregar=async()=>{setCarregando(true);try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}catch{setErroCarregar(true);}finally{setCarregando(false);};};
 
   return<div className="page">
-    {carregando&&<div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--muted)",display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-block",width:14,height:14,border:"2px solid var(--amber)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0}}/>Carregando faturas da planilha...</div>}
-    {!carregando&&erroCarregar&&<div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--yellow)",display:"flex",alignItems:"center",gap:8}}><Icon name="alert" size={14} color="var(--yellow)"/>Não foi possível carregar dados da planilha. Exibindo dados da sessão atual.</div>}
+    {carregando&&<div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--muted)",display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-block",width:14,height:14,border:"2px solid var(--amber)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0}}/>Carregando faturas...</div>}
+    {!carregando&&erroCarregar&&<div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--yellow)",display:"flex",alignItems:"center",gap:8}}><Icon name="alert" size={14} color="var(--yellow)"/>Não foi possível carregar dados. Exibindo dados da sessão atual.</div>}
     {!carregando&&!erroCarregar&&<div style={{fontSize:11,color:"var(--muted)",marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="check" size={12} color="var(--green)"/><span>Dados carregados · {todasFaturas.length} fatura{todasFaturas.length!==1?"s":""}</span><button onClick={recarregar} style={{marginLeft:8,background:"none",border:"1px solid var(--bd)",borderRadius:4,padding:"2px 8px",fontSize:11,color:"var(--muted)",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Atualizar</button></div>}
-
-    <div className="sub-tabs">
-      {[["resumo","chart","Resumo"],["faturas","table","Faturas"],["historico","clock","Histórico"]].map(([k,ico,l])=>(
-        <button key={k} className={`sub-tab${subAba===k?" on":""}`} onClick={()=>setSubAba(k)}><Icon name={ico} size={13}/>{l}</button>
-      ))}
-    </div>
+    <div className="sub-tabs">{[["resumo","chart","Resumo"],["faturas","table","Faturas"],["historico","clock","Histórico"]].map(([k,ico,l])=><button key={k} className={`sub-tab${subAba===k?" on":""}`} onClick={()=>setSubAba(k)}><Icon name={ico} size={13}/>{l}</button>)}</div>
 
     {subAba==="resumo"&&<>
       <div className="filters" style={{marginBottom:16}}>
-        <div style={{position:"relative"}}>
-          <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span>
-          <input className="filter-inp" style={{paddingLeft:28,minWidth:180}} placeholder="Transportadora, empresa..." value={rBusca} onChange={e=>setRBusca(e.target.value)}/>
-        </div>
+        <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:180}} placeholder="Transportadora, empresa..." value={rBusca} onChange={e=>setRBusca(e.target.value)}/></div>
         <select className="filter-inp" value={rMes} onChange={e=>setRMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={rAno} onChange={e=>setRAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
         <select className="filter-inp" value={rTransp} onChange={e=>setRTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadorasUnicas.map(t=><option key={t}>{t}</option>)}</select>
@@ -1036,57 +628,20 @@ function Gestao({ faturas: faturasLocais }) {
         {temFiltroResumo&&<button className="filter-clear" onClick={limparFiltrosResumo}>Limpar</button>}
         <span className="results-count">{faturasResumo.length} resultado{faturasResumo.length!==1?"s":""}</span>
       </div>
-
       <div className="kpi-grid">
         <div className="kpi k-amber"><div className="kpi-header"><div className="kpi-label">Total Bruto</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.valor||0),0))}</div><div className="kpi-sub">{faturasResumo.length} fatura{faturasResumo.length!==1?"s":""}</div></div>
         <div className="kpi k-blue"><div className="kpi-header"><div className="kpi-label">Total Descontos</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.desconto||0),0))}</div><div className="kpi-sub">{faturasResumo.filter(f=>f.desconto>0).length} com desconto</div></div>
         <div className="kpi k-green"><div className="kpi-header"><div className="kpi-label">Total Líquido</div><div className="kpi-icon"><Icon name="dollar" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.reduce((s,f)=>s+(f.valor||0)-(f.desconto||0),0))}</div><div className="kpi-sub">bruto menos descontos</div></div>
-        <div className="kpi k-red"><div className="kpi-header"><div className="kpi-label">Vencido (aberto)</div><div className="kpi-icon"><Icon name="alert" size={18}/></div></div>
-          <div className="kpi-value">{fmtBRL(faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).reduce((s,f)=>s+(f.valor-(f.desconto||0)),0))}</div>
-          <div className="kpi-sub">{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length} fatura{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length!==1?"s":""}</div>
-        </div>
+        <div className="kpi k-red"><div className="kpi-header"><div className="kpi-label">Vencido (aberto)</div><div className="kpi-icon"><Icon name="alert" size={18}/></div></div><div className="kpi-value">{fmtBRL(faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).reduce((s,f)=>s+(f.valor-(f.desconto||0)),0))}</div><div className="kpi-sub">{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length} fatura{faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0).length!==1?"s":""}</div></div>
       </div>
-
-      {(()=>{
-        const venc = faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);
-        const urg  = faturasResumo.filter(f=>{if(f.status==="Paga"||!f.vencimento)return false;const dc=diasAteVencer(f.vencimento);const du=diasUteisAteVencer(f.vencimento);return dc>=0&&du<=6;});
-        return <div className="g2" style={{marginBottom:14}}>
-          <div style={{background:"var(--red-g)",border:"1px solid var(--red-b)",borderRadius:8,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="alert" size={15} color="var(--red)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--red)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Vencidas em aberto ({venc.length})</span></div>
-            {venc.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura vencida 🎉</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{venc.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)}</span></div>)}</div>}
-          </div>
-          <div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"14px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="clock" size={15} color="var(--yellow)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--yellow)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Urgente — até 6 dias úteis ({urg.length})</span></div>
-            {urg.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura urgente</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{urg.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)} · <span style={{color:"var(--yellow)"}}>{diasUteisAteVencer(f.vencimento)}du</span></span></div>)}</div>}
-          </div>
-        </div>;
-      })()}
-
-      {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length>0&&(
-        <div style={{background:"rgba(96,165,250,0.08)",border:"1px solid var(--blue-b)",borderRadius:8,padding:"12px 15px",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><Icon name="alert" size={14} color="var(--blue)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--blue)",letterSpacing:"0.04em",textTransform:"uppercase"}}>{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length} fatura{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length!==1?"s":""} com prazo crítico — contato necessário</span></div>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").map(f=>(
-              <div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)"}}>
-                · <span style={{color:"var(--text)",fontWeight:600}}>{f.transportadora}</span> — {fmtBRL(f.valor)} — venc. {fmtDate(f.vencimento)} — pagamento possível em <span style={{color:"var(--blue)"}}>{fmtAviso(f.avisoVencimento)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="card-plain">
-        <div className="sec-head" style={{marginBottom:16}}><div className="sec-title">Valor por Transportadora</div></div>
-        <div className="bar-chart">{porTranspResumo.map(([nome,val])=>(
-          <div className="bar-row" key={nome}><div className="bar-label">{nome}</div><div className="bar-track"><div className="bar-fill" style={{width:`${(val/maxTranspResumo)*100}%`}}/></div><div className="bar-amt">{fmtBRL(val)}</div></div>
-        ))}</div>
-        {porTranspResumo.length===0&&<div style={{textAlign:"center",color:"var(--muted)",fontSize:13,padding:"16px"}}>Nenhum resultado para os filtros selecionados</div>}
-      </div>
+      {(()=>{const venc=faturasResumo.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)<0);const urg=faturasResumo.filter(f=>{if(f.status==="Paga"||!f.vencimento)return false;const dc=diasAteVencer(f.vencimento),du=diasUteisAteVencer(f.vencimento);return dc>=0&&du<=6;});return<div className="g2" style={{marginBottom:14}}><div style={{background:"var(--red-g)",border:"1px solid var(--red-b)",borderRadius:8,padding:"14px 16px"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="alert" size={15} color="var(--red)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--red)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Vencidas em aberto ({venc.length})</span></div>{venc.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura vencida 🎉</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{venc.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)}</span></div>)}</div>}</div><div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"14px 16px"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><Icon name="clock" size={15} color="var(--yellow)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--yellow)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Urgente — até 6 dias úteis ({urg.length})</span></div>{urg.length===0?<div style={{fontSize:12,color:"var(--muted)"}}>Nenhuma fatura urgente</div>:<div style={{display:"flex",flexDirection:"column",gap:5}}>{urg.map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)",display:"flex",justifyContent:"space-between",gap:8}}><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,color:"var(--text)"}}>{f.transportadora}</span><span>{fmtBRL(f.valor)} · {fmtDate(f.vencimento)} · <span style={{color:"var(--yellow)"}}>{diasUteisAteVencer(f.vencimento)}du</span></span></div>)}</div>}</div></div>;})()}
+      {faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length>0&&<div style={{background:"rgba(96,165,250,0.08)",border:"1px solid var(--blue-b)",borderRadius:8,padding:"12px 15px",marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><Icon name="alert" size={14} color="var(--blue)"/><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"var(--blue)",letterSpacing:"0.04em",textTransform:"uppercase"}}>{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length} fatura{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").length!==1?"s":""} com prazo crítico</span></div><div style={{display:"flex",flexDirection:"column",gap:4}}>{faturasResumo.filter(f=>f.avisoVencimento&&f.status!=="Paga").map(f=><div key={f._key||f.id} style={{fontSize:12,color:"var(--muted)"}}>· <span style={{color:"var(--text)",fontWeight:600}}>{f.transportadora}</span> — {fmtBRL(f.valor)} — venc. {fmtDate(f.vencimento)} — pagamento possível em <span style={{color:"var(--blue)"}}>{fmtAviso(f.avisoVencimento)}</span></div>)}</div></div>}
+      <div className="card-plain"><div className="sec-head" style={{marginBottom:16}}><div className="sec-title">Valor por Transportadora</div></div><div className="bar-chart">{porTranspResumo.map(([nome,val])=><div className="bar-row" key={nome}><div className="bar-label">{nome}</div><div className="bar-track"><div className="bar-fill" style={{width:`${(val/maxTranspResumo)*100}%`}}/></div><div className="bar-amt">{fmtBRL(val)}</div></div>)}</div>{porTranspResumo.length===0&&<div style={{textAlign:"center",color:"var(--muted)",fontSize:13,padding:"16px"}}>Nenhum resultado</div>}</div>
     </>}
 
     {subAba==="faturas"&&<>
       <div className="filters">
-        <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:200}} placeholder="Nº fatura, transportadora, empresa, CD..." value={busca} onChange={e=>setBusca(e.target.value)}/></div>
+        <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:200}} placeholder="Nº fatura, transportadora, empresa..." value={busca} onChange={e=>setBusca(e.target.value)}/></div>
         <select className="filter-inp" value={filtroMes} onChange={e=>setFiltroMes(e.target.value)}><option value="">Todos os meses</option>{meses.map(m=><option key={m}>{m}</option>)}</select>
         <select className="filter-inp" value={filtroAno} onChange={e=>setFiltroAno(e.target.value)}><option value="">Todos os anos</option>{anos.map(a=><option key={a}>{a}</option>)}</select>
         <select className="filter-inp" value={filtroTransp} onChange={e=>setFiltroTransp(e.target.value)}><option value="">Todas as transportadoras</option>{transportadorasUnicas.map(t=><option key={t}>{t}</option>)}</select>
@@ -1097,68 +652,33 @@ function Gestao({ faturas: faturasLocais }) {
         {temFiltro&&<button className="filter-clear" onClick={limparFiltros}>Limpar</button>}
         <span className="results-count">{faturasVisiveis.length} resultado{faturasVisiveis.length!==1?"s":""}</span>
       </div>
-
       {selecionadas.size>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"var(--amber-glow)",border:"1px solid var(--amber-b)",borderRadius:8,marginBottom:12,flexWrap:"wrap"}}>
         <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"var(--amber)"}}>{selecionadas.size} fatura{selecionadas.size!==1?"s":""} selecionada{selecionadas.size!==1?"s":""}</span>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:12,color:"var(--muted)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Data de pagamento:</span>
-          <input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/>
-        </div>
-        <button disabled={!dataPgtoInput||marcando} onClick={()=>{if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>{marcando?"Salvando...":"✓ Marcar como Pagas"}</button>
+        <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"var(--muted)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Data de pagamento:</span><input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,fontFamily:"'Barlow',sans-serif",outline:"none"}}/></div>
+        <button disabled={!dataPgtoInput||marcando} onClick={()=>{if(!dataPgtoInput){alert("Informe a data de pagamento.");return;}const[y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed",transition:"all .15s"}}>{marcando?"Salvando...":"✓ Marcar como Pagas"}</button>
         <button onClick={()=>{setSelecionadas(new Set());setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:18}}>×</button>
       </div>}
-
-      <div className="tbl-wrap">
-        <table className="tbl">
-          <thead><tr>
-            <th style={{width:32}}><input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={selecionadas.size===faturasVisiveis.filter(f=>f.status!=="Paga").length&&faturasVisiveis.filter(f=>f.status!=="Paga").length>0} onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>f.status!=="Paga"&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/></th>
-            <th>Nº Fatura</th><th>Transportadora</th><th>Empresa</th><th>Natureza</th><th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Ajuste</th><th>Pgto</th>
-          </tr></thead>
-          <tbody>
-            {faturasVisiveis.length===0&&<tr><td colSpan={13} style={{textAlign:"center",color:"var(--muted)",padding:"28px"}}>Nenhuma fatura encontrada</td></tr>}
-            {faturasVisiveis.map(f=>{
-              const paga=f.status==="Paga";
-              const sel=f.protocolo&&selecionadas.has(f.protocolo);
-              return<tr key={f._key||f.id} style={{opacity:paga?0.7:1,background:sel?"rgba(245,166,35,0.05)":""}}>
-                <td>{!paga&&f.protocolo&&<input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={!!sel} onChange={e=>{const n=new Set(selecionadas);e.target.checked?n.add(f.protocolo):n.delete(f.protocolo);setSelecionadas(n);}}/>}</td>
-                <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"var(--muted)"}}>{f.numeroFatura||"—"}</td>
-                <td><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.transportadora}</span></td>
-                <td style={{color:"var(--muted)",fontSize:12}}>{f.empresa}</td>
-                <td><span className={`badge ${f.natureza==="Difal"?"badge-blue":"badge-amber"}`}>{f.natureza}</span></td>
-                <td style={{fontSize:12,color:"var(--muted)"}}>{f.mes}/{f.ano}</td>
-                <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{fmtDate(f.vencimento)}</td>
-                <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--amber)"}}>{fmtBRL(f.valor)}</td>
-                <td style={{fontSize:12,color:"var(--muted)"}}>{f.desconto>0?fmtBRL(f.desconto):"—"}</td>
-                <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--green)"}}>{fmtBRL((f.valor||0)-(f.desconto||0))}</td>
-                <td>{statusBadge(f.vencimento,paga)}</td>
-                <td>
-                  {!paga&&f.avisoVencimento&&f.protocolo&&(
-                    ajustandoId===f.protocolo
-                      ?<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-                          <input type="date" autoFocus value={novaDataVenc} onChange={e=>setNovaDataVenc(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--blue-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
-                          <button onClick={()=>{if(!novaDataVenc){alert("Informe a nova data.");return;}registrarAjuste(f.protocolo,novaDataVenc);}} style={{background:"var(--blue)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
-                          <button onClick={()=>{setAjustandoId(null);setNovaDataVenc("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
-                        </div>
-                      :<button onClick={()=>{setAjustandoId(f.protocolo);setNovaDataVenc("");}} style={{background:"none",border:"1px solid var(--blue-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--blue)"}}>Ajustar</button>
-                  )}
-                </td>
-                <td>
-                  {!paga&&f.protocolo&&(
-                    pagandoId===f.protocolo
-                      ?<div style={{display:"flex",alignItems:"center",gap:5}}>
-                          <input type="date" autoFocus value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/>
-                          <button onClick={()=>{if(!dataPgtoInput){alert("Informe a data.");return;}const [y,m,d]=dataPgtoInput.split("-");marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);}} style={{background:"var(--green)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button>
-                          <button onClick={()=>{setPagandoId(null);setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button>
-                        </div>
-                      :<button onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}} style={{background:"none",border:"1px solid var(--green-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--green)"}}>Pagar</button>
-                  )}
-                  {paga&&<span style={{fontSize:11,color:"var(--muted)"}}>{f.dataPagamento?(f.dataPagamento.includes("T")?fmtDate(f.dataPagamento.split("T")[0]):f.dataPagamento):"—"}</span>}
-                </td>
-              </tr>;
-            })}
-          </tbody>
-        </table>
-      </div>
+      <div className="tbl-wrap"><table className="tbl">
+        <thead><tr><th style={{width:32}}><input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={selecionadas.size===faturasVisiveis.filter(f=>f.status!=="Paga").length&&faturasVisiveis.filter(f=>f.status!=="Paga").length>0} onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>f.status!=="Paga"&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/></th><th>Nº Fatura</th><th>Transportadora</th><th>Empresa</th><th>Natureza</th><th>Referência</th><th>Vencimento</th><th>Valor Bruto</th><th>Desconto</th><th>Valor Líquido</th><th>Status</th><th>Ajuste</th><th>Pgto</th></tr></thead>
+        <tbody>
+          {faturasVisiveis.length===0&&<tr><td colSpan={13} style={{textAlign:"center",color:"var(--muted)",padding:"28px"}}>Nenhuma fatura encontrada</td></tr>}
+          {faturasVisiveis.map(f=>{const paga=f.status==="Paga",sel=f.protocolo&&selecionadas.has(f.protocolo);return<tr key={f._key||f.id} style={{opacity:paga?0.7:1,background:sel?"rgba(245,166,35,0.05)":""}}>
+            <td>{!paga&&f.protocolo&&<input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={!!sel} onChange={e=>{const n=new Set(selecionadas);e.target.checked?n.add(f.protocolo):n.delete(f.protocolo);setSelecionadas(n);}}/>}</td>
+            <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"var(--muted)"}}>{f.numeroFatura||"—"}</td>
+            <td><span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.transportadora}</span></td>
+            <td style={{color:"var(--muted)",fontSize:12}}>{f.empresa}</td>
+            <td><span className={`badge ${f.natureza==="Difal"?"badge-blue":"badge-amber"}`}>{f.natureza||"—"}</span></td>
+            <td style={{fontSize:12,color:"var(--muted)"}}>{f.mes}/{f.ano}</td>
+            <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{fmtDate(f.vencimento)}</td>
+            <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--amber)"}}>{fmtBRL(f.valor)}</td>
+            <td style={{fontSize:12,color:"var(--muted)"}}>{f.desconto>0?fmtBRL(f.desconto):"—"}</td>
+            <td style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:"var(--green)"}}>{fmtBRL((f.valor||0)-(f.desconto||0))}</td>
+            <td>{statusBadge(f.vencimento,paga)}</td>
+            <td>{!paga&&f.avisoVencimento&&f.protocolo&&(ajustandoId===f.protocolo?<div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}><input type="date" autoFocus value={novaDataVenc} onChange={e=>setNovaDataVenc(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--blue-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/><button onClick={()=>{if(!novaDataVenc){alert("Informe a nova data.");return;}registrarAjuste(f.protocolo,novaDataVenc);}} style={{background:"var(--blue)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button><button onClick={()=>{setAjustandoId(null);setNovaDataVenc("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button></div>:<button onClick={()=>{setAjustandoId(f.protocolo);setNovaDataVenc("");}} style={{background:"none",border:"1px solid var(--blue-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--blue)"}}>Ajustar</button>)}</td>
+            <td>{!paga&&f.protocolo&&(pagandoId===f.protocolo?<div style={{display:"flex",alignItems:"center",gap:5}}><input type="date" autoFocus value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"3px 7px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:4,color:"var(--text)",fontSize:12,fontFamily:"'Barlow',sans-serif",outline:"none",width:130}}/><button onClick={()=>{if(!dataPgtoInput){alert("Informe a data.");return;}const[y,m,d]=dataPgtoInput.split("-");marcarPagas(new Set([f.protocolo]),`${d}/${m}/${y}`);}} style={{background:"var(--green)",border:"none",borderRadius:4,padding:"3px 8px",cursor:"pointer",color:"var(--dark)",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:800}}>✓</button><button onClick={()=>{setPagandoId(null);setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:15,lineHeight:1}}>×</button></div>:<button onClick={()=>{setPagandoId(f.protocolo);setDataPgtoInput("");}} style={{background:"none",border:"1px solid var(--green-b)",borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"var(--green)"}}>Pagar</button>)}{paga&&<span style={{fontSize:11,color:"var(--muted)"}}>{f.dataPagamento?(f.dataPagamento.includes("T")?fmtDate(f.dataPagamento.split("T")[0]):f.dataPagamento):"—"}</span>}</td>
+          </tr>;})}
+        </tbody>
+      </table></div>
     </>}
 
     {subAba==="historico"&&<>
@@ -1170,74 +690,23 @@ function Gestao({ faturas: faturasLocais }) {
           {historicoData&&<button onClick={()=>setHistoricoData("")} style={{background:"none",border:"1px solid var(--bd)",borderRadius:4,padding:"4px 9px",cursor:"pointer",color:"var(--muted)",fontSize:11,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Limpar</button>}
         </div>
       </div>
-      {[...todasFaturas].filter(f=>{
-        if(!historicoData) return true;
-        if(!f.dataEnvio) return false;
-        let de = f.dataEnvio;
-        if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
-        if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
-        if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
-        return de === historicoData;
-      }).reverse().map(f=>(
-        <div className="hist-item" key={f._key||f.id}>
-          <div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div>
-          <div style={{flex:1,minWidth:0}}>
-            <div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span>
-              {f.avisoVencimento&&f.status!=="Paga"&&<span style={{marginLeft:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:800,letterSpacing:"0.08em",padding:"1px 6px",borderRadius:3,background:"rgba(96,165,250,0.12)",color:"var(--blue)",border:"1px solid var(--blue-b)"}}>PRAZO CRÍTICO</span>}
-            </div>
-            <div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos?.length||0} arquivo{(f.arquivos?.length||0)!==1?"s":""}</div>
-            {f.avisoVencimento&&f.status!=="Paga"&&<div style={{fontSize:11,color:"var(--blue)",marginTop:3}}>Próximo pagamento possível: {fmtAviso(f.avisoVencimento)}</div>}
-          </div>
-          <div className="hist-right">
-            <div className="hist-val">{fmtBRL(f.valor)}</div>
-            <div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>
-            {f.dataEnvio&&<div style={{fontSize:10,color:"var(--dim)",marginTop:2}}>Enviado: {fmtDate(f.dataEnvio)}</div>}
-            <div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div>
-          </div>
-        </div>
-      ))}
-      {todasFaturas.filter(f=>{
-        if(!historicoData) return true;
-        if(!f.dataEnvio) return false;
-        let de = f.dataEnvio;
-        if(typeof de === "object" && de instanceof Date) de = de.toISOString().split("T")[0];
-        if(typeof de === "string" && de.includes("T")) de = de.split("T")[0];
-        if(typeof de === "string" && de.includes("/")) { const [d,m,y]=de.split("/"); de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`; }
-        return de === historicoData;
-      }).length===0&&(
-        <div style={{textAlign:"center",color:"var(--muted)",padding:"28px",fontSize:13}}>Nenhuma fatura encontrada para esta data</div>
-      )}
+      {[...todasFaturas].filter(f=>{if(!historicoData)return true;try{if(!f.dataEnvio)return false;let de=f.dataEnvio;if(typeof de==="object"&&de instanceof Date)de=de.toISOString().split("T")[0];if(typeof de==="string"&&de.includes("T"))de=de.split("T")[0];if(typeof de==="string"&&de.includes("/")){const[d,m,y]=de.split("/");de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;}return de===historicoData;}catch{return false;}}).reverse().map(f=><div className="hist-item" key={f._key||f.id}><div className="hist-icon"><Icon name={f.natureza==="Difal"?"fileText":"file"} size={20} color="var(--amber)"/></div><div style={{flex:1,minWidth:0}}><div className="hist-name">{f.transportadora} <span style={{color:"var(--muted)",fontWeight:400,fontSize:12}}>· {f.empresa}</span>{f.avisoVencimento&&f.status!=="Paga"&&<span style={{marginLeft:8,fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:800,letterSpacing:"0.08em",padding:"1px 6px",borderRadius:3,background:"rgba(96,165,250,0.12)",color:"var(--blue)",border:"1px solid var(--blue-b)"}}>PRAZO CRÍTICO</span>}</div><div className="hist-meta">{f.numeroFatura&&<span style={{color:"var(--amber)",marginRight:6}}>{f.numeroFatura}</span>}{f.cd} · {f.seg} · {f.ciclo} · {f.mes}/{f.ano} · {f.arquivos?.length||0} arquivo{(f.arquivos?.length||0)!==1?"s":""}</div>{f.avisoVencimento&&f.status!=="Paga"&&<div style={{fontSize:11,color:"var(--blue)",marginTop:3}}>Próximo pagamento possível: {fmtAviso(f.avisoVencimento)}</div>}</div><div className="hist-right"><div className="hist-val">{fmtBRL(f.valor)}</div><div className="hist-date">Venc. {fmtDate(f.vencimento)}</div>{f.dataEnvio&&<div style={{fontSize:10,color:"var(--dim)",marginTop:2}}>Enviado: {fmtDate(f.dataEnvio)}</div>}<div style={{marginTop:3}}>{statusBadge(f.vencimento,f.status==="Paga")}</div></div></div>)}
+      {todasFaturas.filter(f=>{if(!historicoData)return true;try{if(!f.dataEnvio)return false;let de=f.dataEnvio;if(typeof de==="object"&&de instanceof Date)de=de.toISOString().split("T")[0];if(typeof de==="string"&&de.includes("T"))de=de.split("T")[0];if(typeof de==="string"&&de.includes("/")){const[d,m,y]=de.split("/");de=`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;}return de===historicoData;}catch{return false;}}).length===0&&<div style={{textAlign:"center",color:"var(--muted)",padding:"28px",fontSize:13}}>Nenhuma fatura encontrada para esta data</div>}
     </>}
   </div>;
 }
 
-export default function App() {
-  const [usuario,setUsuario]=useState(()=>{
-    try{ const s=localStorage.getItem("portal_usuario"); return s?JSON.parse(s):null; }
-    catch{ return null; }
-  });
-  const [aba,setAba]=useState(()=>{
-    try{ const s=localStorage.getItem("portal_usuario"); const u=s?JSON.parse(s):null; return u?.role==="gestao"?"gestao":"portal"; }
-    catch{ return "portal"; }
-  });
+// ✅ App com ErrorBoundary
+function AppInner(){
+  const [usuario,setUsuario]=useState(lerUsuarioStorage);
+  const [aba,setAba]=useState(()=>{const u=lerUsuarioStorage();return u?.role==="gestao"?"gestao":"portal";});
   const [faturas,setFaturas]=useState(MOCK_FATURAS);
   const vencendoBreve=faturas.filter(f=>f.status!=="Paga"&&f.vencimento&&diasAteVencer(f.vencimento)>=0&&diasUteisAteVencer(f.vencimento)<=6).length;
   const isGestao=usuario?.role==="gestao";
   const isTransp=usuario?.role==="transportadora";
-
-  const handleLogin=u=>{
-    try{ localStorage.setItem("portal_usuario",JSON.stringify({...u,picture:null})); }catch{}
-    setUsuario(u);
-    setAba(u.role==="gestao"?"gestao":"portal");
-  };
-  const handleLogout=()=>{
-    try{ localStorage.removeItem("portal_usuario"); }catch{}
-    setUsuario(null);
-    setAba("portal");
-  };
-
+  const handleLogin=u=>{salvarUsuarioStorage(u);setUsuario(u);setAba(u.role==="gestao"?"gestao":"portal");};
+  const handleLogout=()=>{limparUsuarioStorage();setUsuario(null);setAba("portal");};
   if(!usuario)return<><style>{css}</style><LoginInicial onLogin={handleLogin}/></>;
-
   return<><style>{css}</style>
     <div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)"}}>
       <div className="topbar"><div className="topbar-inner">
@@ -1245,7 +714,7 @@ export default function App() {
         <div><div className="topbar-badge">Transportes · Financeiro</div><div className="topbar-title">Portal de Faturas de Transporte</div></div>
         <div className="topbar-right">
           <span className="topbar-user">
-            {usuario.picture?<img className="topbar-avatar" src={usuario.picture} alt={usuario.nome} referrerPolicy="no-referrer"/>:<div className="topbar-avatar-ph"><Icon name="user" size={13} color="var(--muted)"/></div>}
+            <div className="topbar-avatar-ph"><Icon name="user" size={13} color="var(--muted)"/></div>
             {usuario.nome}
             {usuario.loginMethod==="google"&&<span style={{display:"flex",alignItems:"center",opacity:0.5}}><Icon name="google" size={11}/></span>}
           </span>
@@ -1262,3 +731,4 @@ export default function App() {
     </div>
   </>;
 }
+export default function App(){return<ErrorBoundary><AppInner/></ErrorBoundary>;}
