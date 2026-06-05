@@ -448,7 +448,7 @@ function LoginInicial({onLogin}){
 }
 
 function PortalEnvio({onNovaFatura,transportadoraFixa}){
-  const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
+  const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cnpjEmpresa:"",cnpjEmpresaOutro:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
   const [f,setF]=useState(getBlank);
   const [done,setDone]=useState(false);const [loading,setLoading]=useState(false);const [protocolo,setProtocolo]=useState("");
   const s=k=>v=>setF(p=>({...p,[k]:v}));
@@ -461,13 +461,13 @@ function PortalEnvio({onNovaFatura,transportadoraFixa}){
   const gerarProtocoloLocal=(transp,numeroFatura,vencimento)=>{const tr=(transp||"XX").substring(0,3).toUpperCase();const nf=(numeroFatura||"").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();const venc=(vencimento||"").replace(/-/g,"").substring(2);return `FAT-${tr}-${nf}-${venc}`;};
   // ✅ CORREÇÃO: useMemo protegido contra datas inválidas
   const analiseVencimento=useMemo(()=>{if(!f.vencimento||f.vencimento.length<10)return null;try{return analisarViabilidadePagamento(f.vencimento,nomeTranspAtual,f.ciclo);}catch{return null;}},[f.vencimento,nomeTranspAtual,f.ciclo]);
-  const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const base=f.numeroFatura&&nt&&f.marca&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
+  const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;const cnpjOk=cnpjFinal.replace(/\D/g,"").length===14;const base=f.numeroFatura&&nt&&f.marca&&cnpjOk&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
   const totalArquivosMB=f.files.reduce((s,file)=>s+file.size,0)/1048576;
   const arquivosMuitoGrandes=totalArquivosMB>35;
   const limpar=()=>{if(window.confirm("Deseja limpar todos os campos?"))resetForm();};
   const submit=async()=>{
     if(!valid())return;
-    if(arquivosMuitoGrandes){alert(`Total de arquivos (${totalArquivosMB.toFixed(1)} MB) excede o limite de 35 MB. Reduza o tamanho dos arquivos.`);return;}
+    if(arquivosMuitoGrandes){alert(`Total de arquivos (${totalArquivosMB.toFixed(1)} MB) excede o limite de 35 MB. Reduza o tamanho ou divida em múltiplos envios.`);return;}
     setLoading(true);
     try{
       // ✅ Leitura sequencial — evita estouro de memória com arquivos grandes
@@ -489,7 +489,8 @@ function PortalEnvio({onNovaFatura,transportadoraFixa}){
       const dataMinVencStr=`${String(dataMinContratual.getDate()).padStart(2,"0")}/${String(dataMinContratual.getMonth()+1).padStart(2,"0")}/${dataMinContratual.getFullYear()}`;
       const srLogVencInvalido=analise?.srLogCheck&&analise.srLogCheck.abaixoDoAcordado;
       const srLogDataEsperada=srLogVencInvalido?(analise.srLogCheck.dataEsperadaStr||""):"";
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido:srLogVencInvalido||false,srLogDataEsperada};
+      const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca,cnpjEmpresa:cnpjFinal},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido:srLogVencInvalido||false,srLogDataEsperada};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,arquivos:f.files.map(x=>x.name),status:"Pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
@@ -520,6 +521,59 @@ function PortalEnvio({onNovaFatura,transportadoraFixa}){
         <Field label="Transportadora" req>{transportadoraFixa?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{transportadoraFixa}</div>:<Sel value={f.transportadora} onChange={v=>{s("transportadora")(v);s("transportadoraOutro")("");}} options={transportadoras} placeholder="Selecione..."/>}</Field>
         <Field label="Empresa do Grupo" req><Sel value={f.marca} onChange={s("marca")} options={empresasGrupo} placeholder="Selecione..."/></Field>
       </div>
+      <div style={{marginBottom:12}}><Field label="CNPJ Empresa" req>
+        <div className="sel-w"><select className="sel" value={f.cnpjEmpresa||""} onChange={v=>{s("cnpjEmpresa")(v.target.value);s("cnpjEmpresaOutro")("");}}>
+          <option value="">Selecione o CNPJ...</option>
+          <optgroup label="Lescent">
+            <option value="57.344.563/0002-03">57.344.563/0002-03 — LESCENT VAREJO LTDA (ES)</option>
+            <option value="57.344.563/0001-14">57.344.563/0001-14 — LESCENT VAREJO LTDA (SP)</option>
+          </optgroup>
+          <optgroup label="Ápice">
+            <option value="48.290.289/0003-19">48.290.289/0003-19 — AP COSMETICS LTDA (SP)</option>
+            <option value="48.290.289/0002-38">48.290.289/0002-38 — AP COSMETICS LTDA (RJ)</option>
+            <option value="48.290.289/0001-57">48.290.289/0001-57 — AP COSMETICS LTDA (ES)</option>
+            <option value="26.301.600/0001-83">26.301.600/0001-83 — APICE COSMETICS SA (ES B2B)</option>
+          </optgroup>
+          <optgroup label="Barbour's">
+            <option value="54.137.817/0002-16">54.137.817/0002-16 — BB VAREJO LTDA (SP)</option>
+            <option value="54.137.817/0004-88">54.137.817/0004-88 — BB VAREJO LTDA (RJ)</option>
+            <option value="54.137.817/0003-05">54.137.817/0003-05 — BB VAREJO LTDA (ES)</option>
+            <option value="54.137.817/0001-35">54.137.817/0001-35 — BB VAREJO LTDA (MATRIZ)</option>
+          </optgroup>
+          <optgroup label="Gocase">
+            <option value="22.165.464/0001-90">22.165.464/0001-90 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="22.165.464/0002-71">22.165.464/0002-71 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="22.165.464/0003-52">22.165.464/0003-52 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="22.165.464/0004-33">22.165.464/0004-33 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="23.860.650/0001-02">23.860.650/0001-02 — GOB COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS EIRELI</option>
+            <option value="23.860.650/0005-36">23.860.650/0005-36 — GOB COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="36.838.707/0001-19">36.838.707/0001-19 — GB COMERCIO DE ACESSORIOS DE TELEFONIA LTDA (BB INDUSTRIA)</option>
+            <option value="36.838.707/0002-08">36.838.707/0002-08 — GB COMERCIO DE ACESSORIOS DE TELEFONIA LTDA (BB INDUSTRIA)</option>
+            <option value="46.537.034/0001-10">46.537.034/0001-10 — GR COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.537.034/0002-00">46.537.034/0002-00 — GR COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.743.270/0001-93">46.743.270/0001-93 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.743.270/0002-74">46.743.270/0002-74 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.743.270/0003-55">46.743.270/0003-55 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+          </optgroup>
+          <optgroup label="BeautyHub">
+            <option value="60.453.162/0001-07">60.453.162/0001-07 — BEAUTY HUB VAREJO LTDA (ES)</option>
+            <option value="60.453.002/0001-68">60.453.002/0001-68 — BEAUTY HUB ATACADO LTDA</option>
+          </optgroup>
+          <optgroup label="Gobeaute">
+            <option value="57.168.111/0001-29">57.168.111/0001-29 — BEAUTE PARTICIPACOES LTDA</option>
+          </optgroup>
+          <optgroup label="Kokeshi">
+            <option value="58.181.480/0001-14">58.181.480/0001-14 — KOKESHI VAREJO LTDA</option>
+            <option value="58.319.197/0001-06">58.319.197/0001-06 — KOKESHI HOLDING S.A.</option>
+          </optgroup>
+          <optgroup label="Rituária">
+            <option value="58.323.315/0001-50">58.323.315/0001-50 — RITU PARTNERS LTDA</option>
+            <option value="38.246.589/0001-85">38.246.589/0001-85 — MAGA COMERCIO DE PRODUTOS COSMETICOS S.A.</option>
+          </optgroup>
+          <option value="Outro">Outro (digitar manualmente)</option>
+        </select></div>
+        {(f.cnpjEmpresa==="Outro")&&<div style={{marginTop:8}}><Inp value={f.cnpjEmpresaOutro||""} onChange={v=>{const n=v.replace(/\D/g,"").slice(0,14);const m=n.length<=2?n:n.length<=5?n.replace(/(\d{2})(\d)/,"$1.$2"):n.length<=8?n.replace(/(\d{2})(\d{3})(\d)/,"$1.$2.$3"):n.length<=12?n.replace(/(\d{2})(\d{3})(\d{3})(\d)/,"$1.$2.$3/$4"):n.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d)/,"$1.$2.$3/$4-$5");s("cnpjEmpresaOutro")(m);}} placeholder="00.000.000/0000-00"/></div>}
+      </Field></div>
       {!transportadoraFixa&&f.transportadora==="Outro"&&<div style={{marginBottom:12}}><Field label="Nome da Transportadora" req><Inp value={f.transportadoraOutro||""} onChange={s("transportadoraOutro")} placeholder="Digite o nome da transportadora..."/></Field></div>}
       <Field label="Número da Fatura" req><Inp value={f.numeroFatura} onChange={s("numeroFatura")} placeholder="Ex: NF-2025-004821"/></Field>
     </Sec>
