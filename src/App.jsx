@@ -533,32 +533,41 @@ function PortalEnvio({onNovaFatura,transportadoraFixa}){
             <option value="48.290.289/0003-19">48.290.289/0003-19 — AP COSMETICS LTDA (SP)</option>
             <option value="48.290.289/0002-38">48.290.289/0002-38 — AP COSMETICS LTDA (RJ)</option>
             <option value="48.290.289/0001-57">48.290.289/0001-57 — AP COSMETICS LTDA (ES)</option>
-            <option value="26.301.600/0001-83">26.301.600/0001-83 — APICE COSMETICS SA (ES B2B)</option>
+            <option value="26.301.600/0001-83">26.301.600/0001-83 — APICE COSMETICS SA (ES)</option>
+            <option value="26.301.600/0002-64">26.301.600/0002-64 — APICE COSMETICS SA (RJ)</option>
+            <option value="26.301.600/0003-45">26.301.600/0003-45 — APICE COSMETICS SA (SP)</option>
           </optgroup>
           <optgroup label="Barbour's">
             <option value="54.137.817/0002-16">54.137.817/0002-16 — BB VAREJO LTDA (SP)</option>
             <option value="54.137.817/0004-88">54.137.817/0004-88 — BB VAREJO LTDA (RJ)</option>
             <option value="54.137.817/0003-05">54.137.817/0003-05 — BB VAREJO LTDA (ES)</option>
-            <option value="54.137.817/0001-35">54.137.817/0001-35 — BB VAREJO LTDA (MATRIZ)</option>
+            <option value="54.137.817/0001-35">54.137.817/0001-35 — BB VAREJO LTDA (MATRIZ SP)</option>
+            <option value="54.190.174/0001-93">54.190.174/0001-93 — BB ATACADO LTDA (SP)</option>
+            <option value="54.190.174/0003-55">54.190.174/0003-55 — BB ATACADO LTDA (SP)</option>
           </optgroup>
           <optgroup label="Gocase">
-            <option value="22.165.464/0001-90">22.165.464/0001-90 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="22.165.464/0002-71">22.165.464/0002-71 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="22.165.464/0003-52">22.165.464/0003-52 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="22.165.464/0004-33">22.165.464/0004-33 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="23.860.650/0001-02">23.860.650/0001-02 — GOB COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS EIRELI</option>
+            <option value="22.165.464/0001-90">22.165.464/0001-90 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (CE)</option>
+            <option value="22.165.464/0002-71">22.165.464/0002-71 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (MG)</option>
+            <option value="22.165.464/0003-52">22.165.464/0003-52 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (MG)</option>
+            <option value="22.165.464/0004-33">22.165.464/0004-33 — GO COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (SP)</option>
+            <option value="23.860.650/0001-02">23.860.650/0001-02 — GOB COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS EIRELI (CE)</option>
             <option value="23.860.650/0005-36">23.860.650/0005-36 — GOB COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="36.838.707/0001-19">36.838.707/0001-19 — GB COMERCIO DE ACESSORIOS DE TELEFONIA LTDA (BB INDUSTRIA)</option>
-            <option value="36.838.707/0002-08">36.838.707/0002-08 — GB COMERCIO DE ACESSORIOS DE TELEFONIA LTDA (BB INDUSTRIA)</option>
-            <option value="46.537.034/0001-10">46.537.034/0001-10 — GR COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="36.838.707/0001-19">36.838.707/0001-19 — BB INDUSTRIA E COMERCIO DE ARTIGOS DE USO PESSOAL LTDA (MG)</option>
+            <option value="36.838.707/0002-08">36.838.707/0002-08 — BB INDUSTRIA E COMERCIO DE ARTIGOS DE USO PESSOAL LTDA (MG)</option>
+            <option value="36.838.707/0005-42">36.838.707/0005-42 — BB INDUSTRIA E COMERCIO DE ARTIGOS DE USO PESSOAL LTDA (ES)</option>
+            <option value="46.537.034/0001-10">46.537.034/0001-10 — GR COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (SP)</option>
             <option value="46.537.034/0002-00">46.537.034/0002-00 — GR COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="46.743.270/0001-93">46.743.270/0001-93 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.743.270/0001-93">46.743.270/0001-93 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (SP)</option>
             <option value="46.743.270/0002-74">46.743.270/0002-74 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
-            <option value="46.743.270/0003-55">46.743.270/0003-55 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA</option>
+            <option value="46.743.270/0003-55">46.743.270/0003-55 — GP COMERCIO DE ARTIGOS ELETRONICOS E ACESSORIOS LTDA (DF)</option>
           </optgroup>
           <optgroup label="BeautyHub">
             <option value="60.453.162/0001-07">60.453.162/0001-07 — BEAUTY HUB VAREJO LTDA (ES)</option>
-            <option value="60.453.002/0001-68">60.453.002/0001-68 — BEAUTY HUB ATACADO LTDA</option>
+            <option value="60.453.162/0002-98">60.453.162/0002-98 — BEAUTY HUB VAREJO LTDA (SP)</option>
+            <option value="60.453.162/0003-79">60.453.162/0003-79 — BEAUTY HUB VAREJO LTDA (RJ)</option>
+            <option value="60.453.002/0001-68">60.453.002/0001-68 — BEAUTY HUB ATACADO LTDA (ES)</option>
+            <option value="60.453.002/0002-49">60.453.002/0002-49 — BEAUTY HUB ATACADO LTDA (SP)</option>
+            <option value="60.453.002/0003-20">60.453.002/0003-20 — BEAUTY HUB ATACADO LTDA (RJ)</option>
           </optgroup>
           <optgroup label="Gobeaute">
             <option value="57.168.111/0001-29">57.168.111/0001-29 — BEAUTE PARTICIPACOES LTDA</option>
@@ -570,6 +579,7 @@ function PortalEnvio({onNovaFatura,transportadoraFixa}){
           <optgroup label="Rituária">
             <option value="58.323.315/0001-50">58.323.315/0001-50 — RITU PARTNERS LTDA</option>
             <option value="38.246.589/0001-85">38.246.589/0001-85 — MAGA COMERCIO DE PRODUTOS COSMETICOS S.A.</option>
+            <option value="38.246.589/0002-66">38.246.589/0002-66 — MAGA COMERCIO DE PRODUTOS COSMETICOS S.A. (MG)</option>
           </optgroup>
           <option value="Outro">Outro (digitar manualmente)</option>
         </select></div>
