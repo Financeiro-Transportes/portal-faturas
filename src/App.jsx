@@ -151,7 +151,7 @@ function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo="") {
 }
 
 const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
-const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub"];
+const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub","Gobeaute"];
 const CDs=["CD MG","CD SP","CD ES","CD RJ"];
 const meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const anos=["2023","2024","2025","2026","2027","2028","2029","2030"];
