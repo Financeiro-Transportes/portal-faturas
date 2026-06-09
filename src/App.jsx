@@ -89,8 +89,8 @@ const OPCOES_CICLO = {
 function getCiclosTransp(n){const t=CICLOS_TRANSPORTADORA[n]||"livre";return OPCOES_CICLO[t]||["Mensal","1ª Quinzena","2ª Quinzena"];}
 
 const PRAZO_PAGAMENTO = {
-  "Anjun":30,"Correios":21,"Diálogo":30,"Diaslog":30,"Gollog":30,"J&T":30,
-  "Log Serviços":30,"Logan":30,"Unixlog":30,"SR Log":15,"SP Fly":30,"KR":21,
+  "Anjun":30,"Correios":21,"Diálogo":30,"Diaslog":15,"Gollog":30,"J&T":30,
+  "Log Serviços":30,"Logan":15,"Unixlog":30,"SR Log":15,"SP Fly":30,"KR":21,
   "Jamef":30,"Favorita":30,"Ativa":30,"Bruno Transportes":15,"ARC":30,"PAED":30,
   "Matheus":30,"Binho":15,"Family":20,"FSL":27,"Cia Cargas":30,"Dirceu":15,
   "Rodo Prime":15,"Teste":30,
