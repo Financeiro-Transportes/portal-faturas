@@ -439,16 +439,48 @@ function Sec({num,iconName,title,sub,children}){return<div className="card"><div
 function Dropzone({files,onChange}){
   const inputId=useRef(`fi-${Math.random().toString(36).slice(2)}`);
   const [drag,setDrag]=useState(false);
+  const [avisoRar,setAvisoRar]=useState(false);
+  const [avisoZip,setAvisoZip]=useState(false);
   const fmt=b=>b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
-  const add=fl=>onChange([...files,...Array.from(fl)]);
+  const isRar=f=>f.name.toLowerCase().endsWith(".rar")||f.type==="application/x-rar-compressed"||f.type==="application/vnd.rar";
+  const isZip=f=>f.name.toLowerCase().endsWith(".zip")||f.type==="application/zip"||f.type==="application/x-zip-compressed";
+  const add=fl=>{
+    const lista=Array.from(fl);
+    const temRar=lista.some(isRar);
+    const temZip=lista.some(isZip);
+    setAvisoRar(temRar);
+    setAvisoZip(temZip&&!temRar);
+    const aceitos=lista.filter(f=>!isRar(f));
+    if(aceitos.length>0)onChange([...files,...aceitos]);
+  };
   return<div>
     <div className={`dz${drag?" drag":""}`} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files)}} onClick={()=>document.getElementById(inputId.current)?.click()}>
       <div className="dz-icon"><Icon name="upload" size={28} color="var(--amber)"/></div>
       <div className="dz-title">Arraste ou clique para anexar</div>
-      <div className="dz-sub">PDF · XML · XLSX — fatura principal e documentos auxiliares</div>
-      <input id={inputId.current} type="file" multiple accept=".pdf,.xml,.xlsx,.xls,.png,.jpg" style={{display:"none"}} onChange={e=>add(e.target.files)}/>
+      <div className="dz-sub">PDF · XML · XLSX · ZIP — fatura principal e documentos auxiliares</div>
+      <input id={inputId.current} type="file" multiple accept=".pdf,.xml,.xlsx,.xls,.png,.jpg,.zip" style={{display:"none"}} onChange={e=>add(e.target.files)}/>
     </div>
-    {files.length>0&&<div className="flist">{files.map((f,i)=><div className="fitem" key={i}><div className="fitem-left"><div className="fitem-icon"><Icon name={f.name.endsWith(".pdf")?"fileText":"file"} size={15} color="var(--amber)"/></div><div><div className="fname">{f.name}{i===0&&<span className="ftag">PRINCIPAL</span>}</div><div className="fsize">{fmt(f.size)}</div></div></div><button className="frm" onClick={e=>{e.stopPropagation();onChange(files.filter((_,j)=>j!==i))}}><Icon name="x" size={15}/></button></div>)}</div>}
+    {avisoRar&&<div style={{marginTop:8,padding:"10px 12px",background:"var(--red-g)",border:"1px solid var(--red-b)",borderRadius:6,fontSize:12,color:"var(--red)",display:"flex",alignItems:"flex-start",gap:7}}>
+      <Icon name="alert" size={13} color="var(--red)"/>
+      <div><strong>Arquivo RAR não aceito.</strong> Por favor converta para ZIP antes de enviar:<br/>
+      <span style={{color:"var(--muted)"}}>WinRAR → Ferramentas → Converter arquivos → ZIP · 7-Zip → Adicionar ao arquivo → Formato ZIP</span></div>
+    </div>}
+    {avisoZip&&<div style={{marginTop:8,padding:"8px 12px",background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:6,fontSize:12,color:"var(--yellow)",display:"flex",alignItems:"center",gap:7}}>
+      <Icon name="alert" size={13} color="var(--yellow)"/>Arquivo ZIP detectado — os arquivos internos serão extraídos automaticamente ao processar.
+    </div>}
+    {files.length>0&&<div className="flist">{files.map((f,i)=>{
+      const zip=isZip(f);
+      return<div className="fitem" key={i}>
+        <div className="fitem-left">
+          <div className="fitem-icon"><Icon name={f.name.endsWith(".pdf")?"fileText":zip?"folder":"file"} size={15} color={zip?"var(--blue)":"var(--amber)"}/></div>
+          <div>
+            <div className="fname">{f.name}{i===0&&<span className="ftag">PRINCIPAL</span>}{zip&&<span className="ftag" style={{background:"var(--blue)",color:"var(--dark)"}}>ZIP</span>}</div>
+            <div className="fsize">{fmt(f.size)}</div>
+          </div>
+        </div>
+        <button className="frm" onClick={e=>{e.stopPropagation();onChange(files.filter((_,j)=>j!==i));}}><Icon name="x" size={15}/></button>
+      </div>;
+    })}</div>}
   </div>;
 }
 
