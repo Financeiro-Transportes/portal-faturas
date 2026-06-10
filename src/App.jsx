@@ -569,7 +569,16 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
   const nomeTranspAtual=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
   const ciclosDisponiveis=getCiclosTransp(nomeTranspAtual);
   const prevTranspRef=useRef(nomeTranspAtual);
-  useEffect(()=>{if(!nomeTranspAtual)return;if(prevTranspRef.current===nomeTranspAtual)return;prevTranspRef.current=nomeTranspAtual;if(ciclosDisponiveis.length===1)s("ciclo")(ciclosDisponiveis[0]);else s("ciclo")("");},[nomeTranspAtual]);
+  useEffect(()=>{
+    if(!nomeTranspAtual)return;
+    // Seta ciclo automaticamente se só tem uma opção — inclusive no reset
+    if(ciclosDisponiveis.length===1){
+      if(f.ciclo!==ciclosDisponiveis[0])s("ciclo")(ciclosDisponiveis[0]);
+    } else if(prevTranspRef.current!==nomeTranspAtual){
+      s("ciclo")("");
+    }
+    prevTranspRef.current=nomeTranspAtual;
+  },[nomeTranspAtual,ciclosDisponiveis.length]);
   const gerarProtocoloLocal=(transp,numeroFatura,vencimento)=>{const tr=(transp||"XX").substring(0,3).toUpperCase();const nf=(numeroFatura||"").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();const venc=(vencimento||"").replace(/-/g,"").substring(2);return`FAT-${tr}-${nf}-${venc}`;};
   const analiseVencimento=useMemo(()=>{if(!f.vencimento||f.vencimento.length<10)return null;try{return analisarViabilidadePagamento(f.vencimento,nomeTranspAtual,f.ciclo,feriados);}catch{return null;}},[f.vencimento,nomeTranspAtual,f.ciclo,feriados]);
   const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;const cnpjOk=cnpjFinal.replace(/\D/g,"").length===14;const base=f.numeroFatura&&nt&&f.marca&&cnpjOk&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
@@ -731,7 +740,26 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
     <div className="card">
       <Preview d={f}/>
       <div className="sub-area">
-        <div className={`sub-status${valid()?" ok":""}`}>{valid()?<><Icon name="check" size={13} color="var(--green)"/>Pronto para enviar</>:"Preencha todos os campos obrigatórios (*)"}</div>
+        <div className={`sub-status${valid()?" ok":""}`}>{valid()?<><Icon name="check" size={13} color="var(--green)"/>Pronto para enviar</>:(()=>{
+          const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
+          const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;
+          const faltando=[];
+          if(!f.numeroFatura)faltando.push("Nº Fatura");
+          if(!nt)faltando.push("Transportadora");
+          if(!f.marca)faltando.push("Empresa");
+          if(cnpjFinal.replace(/\D/g,"").length!==14)faltando.push("CNPJ");
+          if(!f.cdOrigem)faltando.push("CD");
+          if(!f.segmentacao)faltando.push("Canal");
+          if(!f.mes)faltando.push("Mês");
+          if(!f.ano)faltando.push("Ano");
+          if(!f.ciclo)faltando.push("Ciclo");
+          if(!(f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza))faltando.push("Natureza");
+          if(!f.vencimento)faltando.push("Vencimento");
+          if(!f.valorBruto)faltando.push("Valor");
+          if(!f.possuiDesconto)faltando.push("Desconto (Sim/Não)");
+          if(!f.files.length)faltando.push("Arquivo");
+          return<span style={{color:"var(--red)",fontSize:11}}>Faltando: {faltando.join(", ")||"verificando..."}</span>;
+        })()}</div>
         <div style={{display:"flex",gap:8}}>
           <button className="btn-clear" onClick={()=>{if(window.confirm("Limpar tudo?"))resetForm();}}><Icon name="trash" size={13}/>Limpar</button>
           <button className={`btn${valid()?" on":" off"}`} onClick={submit} disabled={!valid()||loading}>{loading?"Enviando...":(<>Registrar Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></>)}</button>
