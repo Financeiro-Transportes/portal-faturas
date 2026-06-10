@@ -562,9 +562,10 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
   const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cnpjEmpresa:"",cnpjEmpresaOutro:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
   const [f,setF]=useState(getBlank);
   const [done,setDone]=useState(false);const [loading,setLoading]=useState(false);const [protocolo,setProtocolo]=useState("");
+  const [formKey,setFormKey]=useState(0);
   const s=k=>v=>setF(p=>({...p,[k]:v}));
   const fmtCur=v=>{const n=v.replace(/\D/g,"");if(!n)return"";return(parseFloat(n)/100).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});};
-  const resetForm=()=>{setF(getBlank());setDone(false);setLoading(false);setProtocolo("");};
+  const resetForm=()=>{setF(getBlank());setDone(false);setLoading(false);setProtocolo("");setFormKey(k=>k+1);};
   const nomeTranspAtual=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;
   const ciclosDisponiveis=getCiclosTransp(nomeTranspAtual);
   const prevTranspRef=useRef(nomeTranspAtual);
@@ -620,7 +621,7 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
       <button className="btn-r" onClick={resetForm}>Nova Fatura <Icon name="arrowRight" size={13} color="var(--dark)"/></button>
     </div></div>;
   }
-  return<div className="page-sm">
+  return<div className="page-sm" key={formKey}>
     <Sec num="1" iconName="building" title="Emissor" sub="Transportadora e empresa do grupo">
       <div className="g2" style={{marginBottom:12}}>
         <Field label="Transportadora" req>{transportadoraFixa?<div style={{padding:"9px 11px",background:"var(--s3)",border:"1px solid var(--bd)",borderRadius:6,fontSize:14,color:"var(--text)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><Icon name="lock" size={13} color="var(--amber)"/>{transportadoraFixa}</div>:<Sel value={f.transportadora} onChange={v=>{s("transportadora")(v);s("transportadoraOutro")("");}} options={transportadoras} placeholder="Selecione..."/>}</Field>
