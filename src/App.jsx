@@ -10,6 +10,7 @@ const GESTAO_GOOGLE_EMAILS = {
   "kelly.sousa@gocase.com":       { nome: "Transportes", role: "gestao" },
   "talita.oliveira@gocase.com":   { nome: "Transportes", role: "gestao" },
   "antonio.mendes@gocase.com":    { nome: "Transportes", role: "gestao" },
+  "miguel.mota@gocase.com":       { nome: "Transportes", role: "gestao" },
 };
 
 // ─── STATUS ──────────────────────────────────────────────────────────────────
