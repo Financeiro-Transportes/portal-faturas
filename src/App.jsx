@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef, Component } from "react";
-
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const APPS_SCRIPT_URL  = import.meta.env.VITE_APPS_SCRIPT_URL  || "";
 const GESTAO_GOOGLE_EMAILS = {
@@ -12,9 +11,7 @@ const GESTAO_GOOGLE_EMAILS = {
   "antonio.mendes@gocase.com":    { nome: "Transportes", role: "gestao" },
   "miguel.mota@gocase.com":       { nome: "Transportes", role: "gestao" },
 };
-
 // ─── STATUS ──────────────────────────────────────────────────────────────────
-
 const STATUS_TRANSP = {
   pendente:               { label: "Recebida — em análise",       badge: "badge-blue" },
   contestada:             { label: "Em análise",                  badge: "badge-blue" },
@@ -29,16 +26,12 @@ const STATUS_TRANSP = {
   paga:                   { label: "Paga",                        badge: "badge-green" },
   paga_com_atraso:        { label: "Paga",                        badge: "badge-green" },
 };
-
 const isPaga = f => ["paga","paga_com_atraso","Paga"].includes(f.status);
-
 const getStatusTransp = (f) => {
   const st = (f.status || "pendente").toLowerCase();
   return STATUS_TRANSP[st] || { label: f.status || "Pendente", badge: "badge-amber" };
 };
-
 // ─── ERROR BOUNDARY ───────────────────────────────────────────────────────────
-
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -62,17 +55,13 @@ class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
-
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
-
 function lerUsuarioStorage() {
   try { const s=localStorage.getItem("portal_usuario"); if(!s)return null; const u=JSON.parse(s); if(!u||!u.role)return null; return{...u,picture:null}; } catch { try{localStorage.removeItem("portal_usuario");}catch{} return null; }
 }
 function salvarUsuarioStorage(u) { try{const{picture,...sem}=u;localStorage.setItem("portal_usuario",JSON.stringify(sem));}catch{} }
 function limparUsuarioStorage() { try{localStorage.removeItem("portal_usuario");}catch{} }
-
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
-
 const CICLOS_TRANSPORTADORA = {
   "Anjun":"mensal","Correios":"mensal","Diálogo":"mensal","Diaslog":"mensal",
   "Gollog":"quinzena","J&T":"mensal","Log Serviços":"mensal","Logan":"quinzena",
@@ -88,7 +77,6 @@ const OPCOES_CICLO = {
   livre:["Mensal","1ª Quinzena","2ª Quinzena","Semanal"],
 };
 function getCiclosTransp(n){const t=CICLOS_TRANSPORTADORA[n]||"livre";return OPCOES_CICLO[t]||["Mensal","1ª Quinzena","2ª Quinzena"];}
-
 const PRAZO_PAGAMENTO = {
   "Anjun":30,"Correios":21,"Diálogo":30,"Diaslog":15,"Gollog":30,"J&T":30,
   "Log Serviços":30,"Logan":15,"Unixlog":30,"SR Log":15,"SP Fly":30,"KR":21,
@@ -98,22 +86,17 @@ const PRAZO_PAGAMENTO = {
 };
 const PRAZO_PADRAO = 30;
 const DATAS_PGTO = [10, 20, 30];
-
 const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
 const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub","Gobeaute"];
 const CDs=["CD MG","CD SP","CD ES","CD RJ"];
 const meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const anos=["2023","2024","2025","2026","2027","2028","2029","2030"];
 const motivosDesc=["Extravio/Avaria","Penalidade por SLA","Devolução Indevida de Pedidos","Desconto por Volume","Ajuste Contratual","Contestação de Fatura","Outro"];
-
 // ─── UTILS ───────────────────────────────────────────────────────────────────
-
 const fmtBRL=v=>{try{return`R$ ${Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;}catch{return"R$ 0,00";}};
 const fmtDate=s=>{if(!s)return"—";try{const[y,m,d]=s.split("-");return`${d}/${m}/${y}`;}catch{return s;}};
 const fmtAviso=v=>{if(!v)return"";try{if(v.includes("T"))return fmtDate(v.split("T")[0]);if(v.includes("-")&&v.length===10)return fmtDate(v);return v;}catch{return v;}};
-
 const diasAteVencer=s=>{if(!s)return 9999;try{const d=Math.ceil((new Date(s)-new Date())/86400000);return isNaN(d)?9999:d;}catch{return 9999;}};
-
 // Extrai mês e ano do campo periodo (YYYY-MM) ou dos campos mes/ano
 const getMes = f => {
   if(f.mes) return f.mes;
@@ -129,9 +112,7 @@ const getAno = f => {
   if(f.periodo) return f.periodo.split("-")[0] || "";
   return "";
 };
-
 // ─── CÁLCULO DE DIAS ÚTEIS (sem feriados por ora — feriados vêm do Apps Script) ──
-
 function adicionarDiasUteis(data, dias, feriados=[]) {
   const fSet = new Set(feriados.map(f => typeof f === "string" ? f : f.toISOString?.().split("T")[0]));
   const d = new Date(data); let add = 0;
@@ -142,7 +123,6 @@ function adicionarDiasUteis(data, dias, feriados=[]) {
   }
   return d;
 }
-
 function diasUteisAteVencer(s, feriados=[]) {
   if(!s) return 9999;
   try {
@@ -169,7 +149,6 @@ function diasUteisAteVencer(s, feriados=[]) {
     return u;
   } catch { return 9999; }
 }
-
 function proximaDataPagamento(base, feriados=[]) {
   const b=new Date(base); b.setHours(0,0,0,0);
   const ano=b.getFullYear(), mes=b.getMonth();
@@ -184,7 +163,6 @@ function proximaDataPagamento(base, feriados=[]) {
   }
   cands.sort((a,b2)=>a-b2); return cands[0]||null;
 }
-
 function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo="", feriados=[]) {
   if(!vencimentoISO) return null;
   try {
@@ -206,7 +184,6 @@ function analisarViabilidadePagamento(vencimentoISO, transportadora, ciclo="", f
     return {viavel,dataPagamentoSugerida:proxPgto,dataPagamentoStr:dtStr,prazoContratual:prazo,baseUsada:minUteis>maxContr?"7du":"contratual",vencimentoAbaixoContrato:venc<maxContr,srLogCheck};
   } catch { return null; }
 }
-
 function validarVencimentoSRLog(vencimentoISO, ciclo) {
   if(!vencimentoISO||!ciclo) return null;
   try {
@@ -225,9 +202,7 @@ function validarVencimentoSRLog(vencimentoISO, ciclo) {
     return {correto:vencDate>=dataEsp,abaixoDoAcordado:vencDate<dataEsp,dataEsperadaStr:fmtEsp,descEsperado:descEsp,ciclo};
   } catch { return null; }
 }
-
 // ─── ÍCONES ───────────────────────────────────────────────────────────────────
-
 const Icon=({name,size=16,color="currentColor"})=>{
   const icons={
     truck:<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
@@ -258,9 +233,7 @@ const Icon=({name,size=16,color="currentColor"})=>{
   };
   return icons[name]||null;
 };
-
 // ─── CSS ─────────────────────────────────────────────────────────────────────
-
 const css=`
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -428,15 +401,21 @@ select.filter-inp{appearance:none;padding-right:22px;cursor:pointer;}
 .fade-in{animation:fadeIn .3s ease both;}
 .page,.page-sm{animation:fadeIn .25s ease both;}
 `;
-
 // ─── COMPONENTES BASE ─────────────────────────────────────────────────────────
-
 function Sel({value,onChange,options,placeholder}){return<div className="sel-w"><select className="sel" value={value} onChange={e=>onChange(e.target.value)}><option value="">{placeholder}</option>{options.map(o=><option key={o.v||o} value={o.v||o}>{o.l||o}</option>)}</select></div>;}
-function Inp({value,onChange,type="text",placeholder,prefix}){return prefix?<div className="pfx-w"><span className="pfx">{prefix}</span><input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/></div>:<input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>;}
+function Inp({value,onChange,type="text",placeholder,prefix}){
+  if(!prefix)return<input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}/>;
+  // Espaço reservado ao prefixo calculado pelo tamanho do texto — evita que
+  // prefixos longos (ex: "Pré-Fat") fiquem por cima do que o usuário digita
+  const padLeft=10+prefix.length*7.5+10;
+  return<div className="pfx-w">
+    <span className="pfx">{prefix}</span>
+    <input className="inp" type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{paddingLeft:padLeft}}/>
+  </div>;
+}
 function Tgl({value,onChange,options}){return<div className="tgl-g">{options.map(o=><button key={o} className={`tgl${value===o?" on":""}`} onClick={()=>onChange(o)}>{o}</button>)}</div>;}
 function Field({label,req,children}){return<div className="fld"><label className="lbl">{label}{req&&<span className="req">*</span>}</label>{children}</div>;}
 function Sec({num,iconName,title,sub,children}){return<div className="card"><div className="sec-head"><div className="sec-num">{num}</div><div><div className="sec-title">{title}</div>{sub&&<div className="sec-sub">{sub}</div>}</div>{iconName&&<div className="sec-ico"><Icon name={iconName} size={18}/></div>}</div>{children}</div>;}
-
 function Dropzone({files,onChange}){
   const inputId=useRef(`fi-${Math.random().toString(36).slice(2)}`);
   const [drag,setDrag]=useState(false);
@@ -484,7 +463,6 @@ function Dropzone({files,onChange}){
     })}</div>}
   </div>;
 }
-
 function Preview({d}){
   const nt=d.transportadora==="Outro"?(d.transportadoraOutro||"—"):(d.transportadora||"—");
   const path=`Financeiro / ${d.segmentacao||"—"} / ${d.marca||"—"} / ${nt} / ${d.cdOrigem||"—"} / ${d.ano||"—"} / ${d.mes||"—"} / ${d.ciclo||"—"}`;
@@ -492,9 +470,7 @@ function Preview({d}){
   const file=`${d.numeroFatura||"NF"}_${venc}_${(d.natureza||"TIPO").toUpperCase()}_${nt.replace(/\s/g,"_").toUpperCase()}.pdf`;
   return<div className="prev"><div className="prev-lbl"><Icon name="folder" size={12} color="var(--amber)"/> Pré-visualização · Drive</div><div className="prev-row"><div className="prev-row-icon"><Icon name="folder" size={12}/></div><div><div className="prev-k">Pasta</div><div className="prev-v">{path}</div></div></div><div className="prev-row"><div className="prev-row-icon"><Icon name="file" size={12}/></div><div><div className="prev-k">Arquivo</div><div className="prev-v">{file}</div></div></div></div>;
 }
-
 // ─── STATUS BADGE ─────────────────────────────────────────────────────────────
-
 function StatusBadge({f, feriados=[]}) {
   const paga = isPaga(f);
   if (paga) return <span className="badge badge-green">Paga</span>;
@@ -505,9 +481,7 @@ function StatusBadge({f, feriados=[]}) {
   if (du <= 6) return <span className="badge badge-yellow">Urgente · {du}du</span>;
   return <span className="badge badge-green">A vencer</span>;
 }
-
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-
 function LoginInicial({onLogin}){
   const [modo,setModo]=useState("gestao");
   const [user,setUser]=useState("");const [pass,setPass]=useState("");
@@ -556,11 +530,9 @@ function LoginInicial({onLogin}){
     </div>
   </div>;
 }
-
 // ─── PORTAL ENVIO ─────────────────────────────────────────────────────────────
-
 function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
-  const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cnpjEmpresa:"",cnpjEmpresaOutro:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
+  const getBlank=()=>{const transp=transportadoraFixa||"";const ciclos=getCiclosTransp(transp);return{numeroFatura:"",transportadora:transp,transportadoraOutro:"",marca:"",cnpjEmpresa:"",cnpjEmpresaOutro:"",tipoDocumentoAnjun:"",numeroFaturaDigitos:"",cdOrigem:"",segmentacao:"",mes:"",ano:"",ciclo:ciclos.length===1?ciclos[0]:"",natureza:"",naturezaOutro:"",vencimento:"",valorBruto:"",possuiDesconto:"",valorDesconto:"",motivoDesconto:"",motivoOutro:"",files:[]};};
   const [f,setF]=useState(getBlank);
   const [done,setDone]=useState(false);const [loading,setLoading]=useState(false);const [protocolo,setProtocolo]=useState("");
   const [formKey,setFormKey]=useState(0);
@@ -580,9 +552,35 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
     }
     prevTranspRef.current=nomeTranspAtual;
   },[nomeTranspAtual,ciclosDisponiveis.length]);
+  // Anjún: quando a transportadora selecionada deixa de ser Anjún, limpa o
+  // estado de tipo de documento (Fatura/Pré-Fatura) — evita ficar "presa"
+  // de uma seleção anterior ao trocar de transportadora.
+  useEffect(()=>{
+    if(nomeTranspAtual!=="Anjun"){
+      if(f.tipoDocumentoAnjun) s("tipoDocumentoAnjun")("");
+      if(f.numeroFaturaDigitos) s("numeroFaturaDigitos")("");
+    }
+  },[nomeTranspAtual]);
+  // Anjún: alterna entre "Fatura" (número livre) e "Pré-Fatura" (número
+  // prefixado automaticamente com "Pré-Fat "). Preserva o que já foi
+  // digitado ao alternar entre os dois modos.
+  const handleTipoDocumentoAnjun=v=>{
+    s("tipoDocumentoAnjun")(v);
+    const digitosAtuais=f.numeroFaturaDigitos||f.numeroFatura.replace(/^Pré-Fat\s*/i,"");
+    if(v==="Pré-Fatura"){
+      s("numeroFaturaDigitos")(digitosAtuais);
+      s("numeroFatura")(digitosAtuais?`Pré-Fat ${digitosAtuais}`:"");
+    }else{
+      s("numeroFatura")(digitosAtuais);
+    }
+  };
+  const handleNumeroFaturaDigitosAnjun=v=>{
+    s("numeroFaturaDigitos")(v);
+    s("numeroFatura")(v?`Pré-Fat ${v}`:"");
+  };
   const gerarProtocoloLocal=(transp,numeroFatura,vencimento)=>{const tr=(transp||"XX").substring(0,3).toUpperCase();const nf=(numeroFatura||"").replace(/[^a-zA-Z0-9]/g,"").substring(0,6).toUpperCase();const venc=(vencimento||"").replace(/-/g,"").substring(2);return`FAT-${tr}-${nf}-${venc}`;};
   const analiseVencimento=useMemo(()=>{if(!f.vencimento||f.vencimento.length<10)return null;try{return analisarViabilidadePagamento(f.vencimento,nomeTranspAtual,f.ciclo,feriados);}catch{return null;}},[f.vencimento,nomeTranspAtual,f.ciclo,feriados]);
-  const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;const cnpjOk=cnpjFinal.replace(/\D/g,"").length===14;const base=f.numeroFatura&&nt&&f.marca&&cnpjOk&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
+  const valid=()=>{const nt=f.transportadora==="Outro"?f.transportadoraOutro:f.transportadora;const naturezaOk=f.natureza==="Outro"?!!f.naturezaOutro:!!f.natureza;const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;const cnpjOk=cnpjFinal.replace(/\D/g,"").length===14;const tipoDocAnjunOk=nt!=="Anjun"||!!f.tipoDocumentoAnjun;const base=f.numeroFatura&&nt&&f.marca&&cnpjOk&&tipoDocAnjunOk&&f.cdOrigem&&f.segmentacao&&f.mes&&f.ano&&f.ciclo&&naturezaOk&&f.vencimento&&f.valorBruto&&f.possuiDesconto&&f.files.length>0;const motivoOk=f.motivoDesconto==="Outro"?!!f.motivoOutro:!!f.motivoDesconto;return f.possuiDesconto==="Sim"?!!(base&&f.valorDesconto&&motivoOk):!!base;};
   const totalArquivosMB=f.files.reduce((s,file)=>s+file.size,0)/1048576;
   const submit=async()=>{
     if(!valid())return;
@@ -609,7 +607,7 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
       const srLogVencInvalido=srLogCheck?.abaixoDoAcordado||false;
       const srLogDataEsperada=srLogVencInvalido?(srLogCheck.dataEsperadaStr||""):"";
       const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;
-      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca,cnpjEmpresa:cnpjFinal},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido,srLogDataEsperada};
+      const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca,cnpjEmpresa:cnpjFinal,tipoDocumento:nt==="Anjun"?f.tipoDocumentoAnjun:undefined},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido,srLogDataEsperada};
       await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,status:"pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
@@ -690,8 +688,18 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
         </select></div>
         {f.cnpjEmpresa==="Outro"&&<div style={{marginTop:8}}><Inp value={f.cnpjEmpresaOutro||""} onChange={v=>{const n=v.replace(/\D/g,"").slice(0,14);const m=n.length<=2?n:n.length<=5?n.replace(/(\d{2})(\d)/,"$1.$2"):n.length<=8?n.replace(/(\d{2})(\d{3})(\d)/,"$1.$2.$3"):n.length<=12?n.replace(/(\d{2})(\d{3})(\d{3})(\d)/,"$1.$2.$3/$4"):n.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d)/,"$1.$2.$3/$4-$5");s("cnpjEmpresaOutro")(m);}} placeholder="00.000.000/0000-00"/></div>}
       </Field></div>
+      {nomeTranspAtual==="Anjun"&&<div style={{marginBottom:12}}>
+        <Field label="Tipo de Documento" req>
+          <Tgl value={f.tipoDocumentoAnjun} onChange={handleTipoDocumentoAnjun} options={["Fatura","Pré-Fatura"]}/>
+        </Field>
+      </div>}
       {!transportadoraFixa&&f.transportadora==="Outro"&&<div style={{marginBottom:12}}><Field label="Nome da Transportadora" req><Inp value={f.transportadoraOutro||""} onChange={s("transportadoraOutro")} placeholder="Digite o nome..."/></Field></div>}
-      <Field label="Número da Fatura" req><Inp value={f.numeroFatura} onChange={s("numeroFatura")} placeholder="Ex: NF-2025-004821"/></Field>
+      <Field label="Número da Fatura" req>
+        {nomeTranspAtual==="Anjun"&&f.tipoDocumentoAnjun==="Pré-Fatura"
+          ? <Inp value={f.numeroFaturaDigitos} onChange={handleNumeroFaturaDigitosAnjun} placeholder="Ex: 004821" prefix="Pré-Fat"/>
+          : <Inp value={f.numeroFatura} onChange={s("numeroFatura")} placeholder="Ex: NF-2025-004821"/>
+        }
+      </Field>
     </Sec>
     <Sec num="2" iconName="pin" title="Origem"><Field label="CD de Origem" req><Sel value={f.cdOrigem} onChange={s("cdOrigem")} options={CDs} placeholder="Selecione o CD..."/></Field></Sec>
     <Sec num="3" iconName="shuffle" title="Segmentação"><Field label="Canal" req><Tgl value={f.segmentacao} onChange={s("segmentacao")} options={["B2B","B2C","Inbound","Fábrica"]}/></Field></Sec>
@@ -749,6 +757,7 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
           if(!nt)faltando.push("Transportadora");
           if(!f.marca)faltando.push("Empresa");
           if(cnpjFinal.replace(/\D/g,"").length!==14)faltando.push("CNPJ");
+          if(nt==="Anjun"&&!f.tipoDocumentoAnjun)faltando.push("Tipo de Documento");
           if(!f.cdOrigem)faltando.push("CD");
           if(!f.segmentacao)faltando.push("Canal");
           if(!f.mes)faltando.push("Mês");
@@ -770,9 +779,7 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
     <div className="footer">Portal Interno · Google Drive Corporativo</div>
   </div>;
 }
-
 // ─── GESTÃO ───────────────────────────────────────────────────────────────────
-
 function Gestao({faturas:faturasLocais, feriados=[]}){
   const [faturas,setFaturas]=useState(faturasLocais);
   const [carregando,setCarregando]=useState(true);
@@ -799,7 +806,6 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
   const [ajustandoId,setAjustandoId]=useState(null);
   const [novaDataVenc,setNovaDataVenc]=useState("");
   const [historicoData,setHistoricoData]=useState("");
-
   useEffect(()=>{
     const carregar=async()=>{
       try{
@@ -812,19 +818,16 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
     };
     carregar();
   },[]);
-
   const todasFaturas=useMemo(()=>{
     if(faturas.length===0) return faturasLocais.map((f,i)=>({...f,_key:`l-${i}`}));
     const protos=new Set(faturas.map(f=>f.protocolo).filter(Boolean));
     const novas=faturasLocais.filter(f=>f.protocolo&&!protos.has(f.protocolo));
     return[...faturas,...novas].map((f,i)=>({...f,_key:`f-${i}-${f.protocolo||f.id}`}));
   },[faturas,faturasLocais]);
-
   const transportadorasUnicas=useMemo(()=>[...new Set(todasFaturas.map(f=>f.transportadora).filter(Boolean))].sort(),[todasFaturas]);
   const empresasUnicas=useMemo(()=>[...new Set(todasFaturas.map(f=>f.empresa).filter(Boolean))].sort(),[todasFaturas]);
   const anosUnicos=useMemo(()=>[...new Set(todasFaturas.map(f=>getAno(f)).filter(Boolean))].sort().reverse(),[todasFaturas]);
   const naturezasUnicas=useMemo(()=>{const base=["Frete","Difal","Transferência de Material"];const extras=[...new Set(todasFaturas.map(f=>f.natureza).filter(n=>n&&!base.includes(n)))].sort();return[...base,...extras];},[todasFaturas]);
-
   const faturasVisiveis=useMemo(()=>todasFaturas.filter(f=>{
     try{
       const paga=isPaga(f);
@@ -848,7 +851,6 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
       return true;
     }catch{return true;}
   }),[todasFaturas,filtroStatus,filtroTransp,filtroEmp,filtroMes,filtroAno,busca,feriados]);
-
   const faturasResumo=useMemo(()=>todasFaturas.filter(f=>{
     try{
       const paga=isPaga(f);
@@ -872,14 +874,12 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
       return true;
     }catch{return true;}
   }),[todasFaturas,rTransp,rEmp,rNatureza,rMes,rAno,rStatus,rBusca,feriados]);
-
   const porTranspResumo=useMemo(()=>{
     const m={};
     faturasResumo.forEach(f=>{m[f.transportadora||"—"]=(m[f.transportadora||"—"]||0)+(f.valor||0);});
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   },[faturasResumo]);
   const maxTransp=porTranspResumo[0]?.[1]||1;
-
   const marcarPagas=async(protocolos,dataPagamento)=>{
     setMarcando(true);
     try{
@@ -890,7 +890,6 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
     }catch(e){alert("Erro: "+e.message);}
     finally{setMarcando(false);}
   };
-
   const registrarAjuste=async(protocolo,novoVencimento)=>{
     try{
       const[y,m,d]=novoVencimento.split("-");
@@ -899,28 +898,23 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
       setAjustandoId(null);setNovaDataVenc("");
     }catch(e){alert("Erro: "+e.message);}
   };
-
   const recarregar=async()=>{
     setCarregando(true);
     try{const r=await fetch(APPS_SCRIPT_URL);const d=await r.json();if(d.sucesso&&d.faturas?.length>0)setFaturas(d.faturas);}
     catch{setErroCarregar(true);}
     finally{setCarregando(false);}
   };
-
   const temFiltro=busca||filtroTransp||filtroEmp||filtroMes||filtroAno||filtroStatus;
   const temFiltroResumo=rBusca||rTransp||rEmp||rNatureza||rMes||rAno||rStatus;
-
   return<div className="page">
     {carregando&&<div style={{background:"var(--s2)",border:"1px solid var(--bd)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--muted)",display:"flex",alignItems:"center",gap:8}}><span style={{display:"inline-block",width:14,height:14,border:"2px solid var(--amber)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite",flexShrink:0}}/>Carregando faturas...</div>}
     {!carregando&&erroCarregar&&<div style={{background:"var(--yellow-g)",border:"1px solid var(--yellow-b)",borderRadius:8,padding:"12px 16px",marginBottom:14,fontSize:13,color:"var(--yellow)",display:"flex",alignItems:"center",gap:8}}><Icon name="alert" size={14} color="var(--yellow)"/>Não foi possível carregar dados atualizados.</div>}
     {!carregando&&!erroCarregar&&<div style={{fontSize:11,color:"var(--muted)",marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="check" size={12} color="var(--green)"/>{todasFaturas.length} fatura{todasFaturas.length!==1?"s":""}<button onClick={recarregar} style={{marginLeft:8,background:"none",border:"1px solid var(--bd)",borderRadius:4,padding:"2px 8px",fontSize:11,color:"var(--muted)",cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase"}}>Atualizar</button></div>}
-
     <div className="sub-tabs">
       {[["resumo","chart","Resumo"],["faturas","table","Faturas"],["historico","clock","Histórico"]].map(([k,ico,l])=>(
         <button key={k} className={`sub-tab${subAba===k?" on":""}`} onClick={()=>setSubAba(k)}><Icon name={ico} size={13}/>{l}</button>
       ))}
     </div>
-
     {subAba==="resumo"&&<>
       <div className="filters" style={{marginBottom:16}}>
         <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:180}} placeholder="Buscar..." value={rBusca} onChange={e=>setRBusca(e.target.value)}/></div>
@@ -967,7 +961,6 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
         {porTranspResumo.length===0&&<div style={{textAlign:"center",color:"var(--muted)",fontSize:13,padding:16}}>Nenhum resultado</div>}
       </div>
     </>}
-
     {subAba==="faturas"&&<>
       <div className="filters">
         <div style={{position:"relative"}}><span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",opacity:0.4}}><Icon name="search" size={13}/></span><input className="filter-inp" style={{paddingLeft:28,minWidth:200}} placeholder="Nº fatura, transportadora..." value={busca} onChange={e=>setBusca(e.target.value)}/></div>
@@ -984,14 +977,12 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
         {temFiltro&&<button className="filter-clear" onClick={()=>{setBusca("");setFiltroTransp("");setFiltroEmp("");setFiltroNatureza("");setFiltroMes("");setFiltroAno("");setFiltroStatus("");}}>Limpar</button>}
         <span className="results-count">{faturasVisiveis.length} resultado{faturasVisiveis.length!==1?"s":""}</span>
       </div>
-
       {selecionadas.size>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"var(--amber-glow)",border:"1px solid var(--amber-b)",borderRadius:8,marginBottom:12,flexWrap:"wrap"}}>
         <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"var(--amber)"}}>{selecionadas.size} selecionada{selecionadas.size!==1?"s":""}</span>
         <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"var(--muted)"}}>Data de pagamento:</span><input type="date" value={dataPgtoInput} onChange={e=>setDataPgtoInput(e.target.value)} style={{padding:"4px 8px",background:"var(--s2)",border:"1px solid var(--amber-b)",borderRadius:5,color:"var(--text)",fontSize:13,outline:"none"}}/></div>
         <button disabled={!dataPgtoInput||marcando} onClick={()=>{if(!dataPgtoInput)return;const[y,m,d]=dataPgtoInput.split("-");marcarPagas(selecionadas,`${d}/${m}/${y}`);}} style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",padding:"6px 16px",background:dataPgtoInput?"var(--amber)":"var(--s3)",color:dataPgtoInput?"var(--dark)":"var(--dim)",border:"none",borderRadius:5,cursor:dataPgtoInput?"pointer":"not-allowed"}}>{marcando?"Salvando...":"✓ Marcar como Pagas"}</button>
         <button onClick={()=>{setSelecionadas(new Set());setDataPgtoInput("");}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--muted)",fontSize:18}}>×</button>
       </div>}
-
       <div className="tbl-wrap"><table className="tbl">
         <thead><tr>
           <th style={{width:32}}><input type="checkbox" style={{cursor:"pointer",accentColor:"var(--amber)"}} checked={selecionadas.size===faturasVisiveis.filter(f=>!isPaga(f)).length&&faturasVisiveis.filter(f=>!isPaga(f)).length>0} onChange={e=>{if(e.target.checked)setSelecionadas(new Set(faturasVisiveis.filter(f=>!isPaga(f)&&f.protocolo).map(f=>f.protocolo)));else setSelecionadas(new Set());}}/></th>
@@ -1033,7 +1024,6 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
         </tbody>
       </table></div>
     </>}
-
     {subAba==="historico"&&<>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
         <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,letterSpacing:"0.06em",color:"var(--muted)",textTransform:"uppercase"}}>{todasFaturas.length} registro{todasFaturas.length!==1?"s":""}</span>
@@ -1064,28 +1054,23 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
     </>}
   </div>;
 }
-
 // ─── APP ─────────────────────────────────────────────────────────────────────
-
 function AppInner(){
   const [usuario,setUsuario]=useState(lerUsuarioStorage);
   const [aba,setAba]=useState(()=>{const u=lerUsuarioStorage();return u?.role==="gestao"?"gestao":"portal";});
   const [faturas,setFaturas]=useState([]);
   const [feriados,setFeriados]=useState([]);
-
   useEffect(()=>{
     fetch(APPS_SCRIPT_URL)
       .then(r=>r.json())
       .then(d=>{ if(d.feriados?.length) setFeriados(d.feriados); })
       .catch(()=>{});
   },[]);
-
   const vencendoBreve=faturas.filter(f=>!isPaga(f)&&f.vencimento&&diasAteVencer(f.vencimento)>=0&&diasUteisAteVencer(f.vencimento,feriados)<=6).length;
   const isGestao=usuario?.role==="gestao";
   const isTransp=usuario?.role==="transportadora";
   const handleLogin=u=>{salvarUsuarioStorage(u);setUsuario(u);setAba(u.role==="gestao"?"gestao":"portal");};
   const handleLogout=()=>{limparUsuarioStorage();setUsuario(null);setAba("portal");};
-
   if(!usuario)return<><style>{css}</style><LoginInicial onLogin={handleLogin}/></>;
   return<><style>{css}</style>
     <div className="bg-grid" style={{minHeight:"100vh",background:"var(--dark)"}}>
@@ -1107,5 +1092,4 @@ function AppInner(){
     </div>
   </>;
 }
-
 export default function App(){return<ErrorBoundary><AppInner/></ErrorBoundary>;}
