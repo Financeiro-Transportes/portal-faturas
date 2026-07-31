@@ -69,7 +69,7 @@ const CICLOS_TRANSPORTADORA = {
   "Jamef":"mensal","Favorita":"demanda","Ativa":"mensal","Bruno Transportes":"mensal",
   "ARC":"demanda","PAED":"demanda","Matheus":"demanda","Binho":"demanda",
   "Family":"mensal","FSL":"demanda","Cia Cargas":"quinzena","Dirceu":"quinzena",
-  "Rodo Prime":"quinzena","Teste":"mensal",
+  "Rodo Prime":"quinzena","Teste":"mensal","Verdex Transportes":"quinzena",
 };
 const OPCOES_CICLO = {
   mensal:["Mensal"],quinzena:["1ª Quinzena","2ª Quinzena"],
@@ -82,11 +82,11 @@ const PRAZO_PAGAMENTO = {
   "Log Serviços":30,"Logan":15,"Unixlog":30,"SR Log":15,"SP Fly":30,"KR":21,
   "Jamef":30,"Favorita":30,"Ativa":30,"Bruno Transportes":15,"ARC":30,"PAED":30,
   "Matheus":30,"Binho":15,"Family":20,"FSL":27,"Cia Cargas":30,"Dirceu":15,
-  "Rodo Prime":15,"Teste":30,
+  "Rodo Prime":15,"Teste":30,"Verdex Transportes":15,
 };
 const PRAZO_PADRAO = 30;
 const DATAS_PGTO = [10, 20, 30];
-const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Teste","Outro"];
+const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Verdex Transportes","Teste","Outro"];
 const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub","Gobeaute"];
 const CDs=["CD MG","CD SP","CD ES","CD RJ"];
 const meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -608,7 +608,13 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
       const srLogDataEsperada=srLogVencInvalido?(srLogCheck.dataEsperadaStr||""):"";
       const cnpjFinal=f.cnpjEmpresa==="Outro"?(f.cnpjEmpresaOutro||""):f.cnpjEmpresa;
       const payload={protocolo:proto,emissor:{numeroFatura:f.numeroFatura,transportadora:nt,marca:f.marca,cnpjEmpresa:cnpjFinal,tipoDocumento:nt==="Anjun"?f.tipoDocumentoAnjun:undefined},origem:{cdOrigem:f.cdOrigem},segmentacao:f.segmentacao,periodo:{mes:f.mes,ano:f.ano,ciclo:f.ciclo},financeiro:{natureza:f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza,vencimento:f.vencimento,valorBruto:f.valorBruto},descontos:{possuiDesconto:f.possuiDesconto,valorDesconto:f.valorDesconto||null,motivoDesconto:f.motivoDesconto==="Outro"?(f.motivoOutro||"Outro"):(f.motivoDesconto||null)},arquivos:arquivosBase64,avisoVencimento:avisoVenc,vencimentoAbaixoContrato,exibirAvisoContratual:!!(vencimentoAbaixoContrato&&PRAZO_PAGAMENTO[nt]),prazoContratual,dataMinVencimento:dataMinVencStr,srLogVencInvalido,srLogDataEsperada};
-      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(payload)});
+      const respFetch=await fetch(APPS_SCRIPT_URL,{method:"POST",body:JSON.stringify(payload)});
+      const respText=await respFetch.text();
+      let respData=null;
+      try{respData=JSON.parse(respText);}catch{}
+      if(!respData||respData.sucesso!==true){
+        throw new Error(respData?.erro||"O servidor não confirmou o registro da fatura. Tente novamente ou avise o time de TI.");
+      }
       const naturezaFinal=f.natureza==="Outro"?(f.naturezaOutro||"Outro"):f.natureza;
       const nova={id:Date.now(),protocolo:proto,numeroFatura:f.numeroFatura,transportadora:nt,empresa:f.marca,cd:f.cdOrigem,seg:f.segmentacao,natureza:naturezaFinal,vencimento:f.vencimento,valor:parseFloat(f.valorBruto.replace(/\./g,"").replace(",","."))||0,desconto:f.possuiDesconto==="Sim"?(parseFloat(f.valorDesconto.replace(/\./g,"").replace(",","."))||0):0,ciclo:f.ciclo,mes:f.mes,ano:f.ano,status:"pendente",dataPagamento:"",avisoVencimento:avisoVenc,dataEnvio:new Date().toISOString().split("T")[0]};
       onNovaFatura(nova);setLoading(false);setDone(true);
@@ -884,7 +890,13 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
     setMarcando(true);
     try{
       const dt=dataPagamento||new Date().toLocaleDateString("pt-BR");
-      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"marcarPago",protocolos:[...protocolos],dataPagamento:dt})});
+      const respFetch=await fetch(APPS_SCRIPT_URL,{method:"POST",body:JSON.stringify({acao:"marcarPago",protocolos:[...protocolos],dataPagamento:dt})});
+      const respText=await respFetch.text();
+      let respData=null;
+      try{respData=JSON.parse(respText);}catch{}
+      if(!respData||respData.sucesso!==true){
+        throw new Error(respData?.erro||"O servidor não confirmou a marcação como paga. Tente novamente.");
+      }
       setFaturas(prev=>prev.map(f=>protocolos.has(f.protocolo)?{...f,status:"paga",dataPagamento:dt}:f));
       setSelecionadas(new Set());setPagandoId(null);setDataPgtoInput("");
     }catch(e){alert("Erro: "+e.message);}
@@ -893,7 +905,13 @@ function Gestao({faturas:faturasLocais, feriados=[]}){
   const registrarAjuste=async(protocolo,novoVencimento)=>{
     try{
       const[y,m,d]=novoVencimento.split("-");
-      await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:`${d}/${m}/${y}`,novoAviso:""})});
+      const respFetch=await fetch(APPS_SCRIPT_URL,{method:"POST",body:JSON.stringify({acao:"ajustarVencimento",protocolo,novoVencimento:`${d}/${m}/${y}`,novoAviso:""})});
+      const respText=await respFetch.text();
+      let respData=null;
+      try{respData=JSON.parse(respText);}catch{}
+      if(!respData||respData.sucesso!==true){
+        throw new Error(respData?.erro||"O servidor não confirmou o ajuste de vencimento. Tente novamente.");
+      }
       setFaturas(prev=>prev.map(f=>f.protocolo===protocolo?{...f,vencimento:novoVencimento}:f));
       setAjustandoId(null);setNovaDataVenc("");
     }catch(e){alert("Erro: "+e.message);}
