@@ -87,7 +87,7 @@ const PRAZO_PAGAMENTO = {
 const PRAZO_PADRAO = 30;
 const DATAS_PGTO = [10, 20, 30];
 const transportadoras=["Anjun","Correios","Diálogo","Diaslog","Gollog","J&T","Log Serviços","Logan","Unixlog","SR Log","SP Fly","KR","Jamef","Favorita","Ativa","Bruno Transportes","ARC","PAED","Matheus","Binho","Family","FSL","Cia Cargas","Dirceu","Rodo Prime","Verdex Transportes","Teste","Outro"];
-const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub","Gobeaute"];
+const empresasGrupo=["Gocase","Ápice","Barbour's","Lescent","Kokeshi","By Sâmia","Rituária","Rituária (Maga)","BeautyHub","Gobeaute","Denavita"];
 const CDs=["CD MG","CD SP","CD ES","CD RJ"];
 const meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const anos=["2023","2024","2025","2026","2027","2028","2029","2030"];
@@ -680,6 +680,10 @@ function PortalEnvio({onNovaFatura,transportadoraFixa,feriados=[]}){
           </optgroup>
           <optgroup label="Gobeaute">
             <option value="57.168.111/0001-29">57.168.111/0001-29 — BEAUTE PARTICIPACOES LTDA</option>
+          </optgroup>
+          <optgroup label="Denavita">
+            <option value="43.777.011/0001-95">43.777.011/0001-95 — DENAVITA (SP)</option>
+            <option value="43.777.011/0002-76">43.777.011/0002-76 — DENAVITA (MG)</option>
           </optgroup>
           <optgroup label="Kokeshi">
             <option value="58.181.480/0001-14">58.181.480/0001-14 — KOKESHI VAREJO LTDA</option>
